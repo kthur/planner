@@ -144,7 +144,7 @@ fun GoalsScreen(
                     if (existingGoal != null) {
                         Spacer(modifier = Modifier.height(12.dp))
                         LinearProgressIndicator(
-                            progress = { pct.coerceIn(0f, 1f) },
+                            progress = pct.coerceIn(0f, 1f),
                             color = color,
                             trackColor = color.copy(alpha = 0.2f),
                             modifier = Modifier

@@ -59,7 +59,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         categoryProgress = goals.combine(monthlyStats) { goals, stats ->
             val statMap = stats.associate { it.category to it.total }
             goals.associate { goal ->
-                goal.category to (statMap[goal.category] ?: 0 to goal.targetMinutes)
+                goal.category to ((statMap[goal.category] ?: 0) to goal.targetMinutes)
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
     }

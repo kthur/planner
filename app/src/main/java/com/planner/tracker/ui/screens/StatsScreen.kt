@@ -230,7 +230,7 @@ fun StatsScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             LinearProgressIndicator(
-                                progress = { pct },
+                                progress = pct,
                                 color = color,
                                 trackColor = color.copy(alpha = 0.2f),
                                 modifier = Modifier

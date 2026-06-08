@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             PlannerTheme {
-                PlannerApp()
+                PlannerUI()
             }
         }
     }
@@ -53,7 +53,7 @@ private val navItems = listOf(
 )
 
 @Composable
-fun PlannerApp() {
+fun PlannerUI() {
     val viewModel: PlannerViewModel = viewModel()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
