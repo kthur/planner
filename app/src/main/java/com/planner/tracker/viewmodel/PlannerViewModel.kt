@@ -34,6 +34,10 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     val monthlyStats: StateFlow<List<CategoryStat>>
 
+    val dailyStats: StateFlow<List<CategoryStat>>
+
+    val weeklyStats: StateFlow<List<CategoryStat>>
+
     val goals: StateFlow<List<Goal>>
 
     val categoryProgress: StateFlow<Map<Category, Pair<Int, Int>>>
@@ -48,7 +52,17 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         )
 
         val monthRange = Repository.getMonthRange(_currentYear.value, _currentMonth.value)
-        monthlyStats = repository.getMonthlyStats(monthRange.first, monthRange.second).stateIn(
+        monthlyStats = repository.getStatsInRange(monthRange.first, monthRange.second).stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+        )
+
+        val day24h = Repository.getDayRange24h()
+        dailyStats = repository.getStatsInRange(day24h.first, day24h.second).stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+        )
+
+        val weekRange = Repository.getWeekRange()
+        weeklyStats = repository.getStatsInRange(weekRange.first, weekRange.second).stateIn(
             viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
         )
 
@@ -68,9 +82,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         _selectedDate.value = date
         val range = Repository.getDayRange(date)
         viewModelScope.launch {
-            repository.getEntriesByDate(range.first).collect {
-                // Flow collected via stateIn above
-            }
+            repository.getEntriesByDate(range.first).collect { }
         }
     }
 
@@ -80,15 +92,17 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         refreshMonthData()
     }
 
-    fun addEntry(category: Category, minutes: Int, note: String) {
+    fun addEntry(category: Category, minutes: Int, note: String, startTime: Long = 0, endTime: Long = 0) {
         viewModelScope.launch {
-            val dayRange = Repository.getDayRange(_selectedDate.value)
+            val dayRange = Repository.getDayRange(if (startTime > 0) startTime else _selectedDate.value)
             repository.insertEntry(
                 Entry(
                     date = dayRange.first,
                     category = category,
                     minutes = minutes,
-                    note = note
+                    note = note,
+                    startTime = startTime,
+                    endTime = endTime
                 )
             )
         }
@@ -100,21 +114,9 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun upsertGoal(category: Category, targetMinutes: Int) {
+    fun upsertGoal(goal: Goal) {
         viewModelScope.launch {
-            val yearMonth = "${_currentYear.value}-${String.format("%02d", _currentMonth.value)}"
-            val existing = repository.getGoal(yearMonth, category)
-            if (existing != null) {
-                repository.upsertGoal(existing.copy(targetMinutes = targetMinutes))
-            } else {
-                repository.upsertGoal(
-                    Goal(
-                        yearMonth = yearMonth,
-                        category = category,
-                        targetMinutes = targetMinutes
-                    )
-                )
-            }
+            repository.upsertGoal(goal)
         }
     }
 
@@ -127,16 +129,23 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
     fun refreshMonthData() {
         val monthRange = Repository.getMonthRange(_currentYear.value, _currentMonth.value)
         viewModelScope.launch {
-            repository.getMonthlyStats(monthRange.first, monthRange.second).collect {
-                // Collected via stateIn
-            }
+            repository.getStatsInRange(monthRange.first, monthRange.second).collect { }
         }
         viewModelScope.launch {
             repository.getGoalsByMonth(
                 "${_currentYear.value}-${String.format("%02d", _currentMonth.value)}"
-            ).collect {
-                // Collected via stateIn
-            }
+            ).collect { }
+        }
+    }
+
+    fun refreshTimeRanges() {
+        val day24h = Repository.getDayRange24h()
+        viewModelScope.launch {
+            repository.getStatsInRange(day24h.first, day24h.second).collect { }
+        }
+        val weekRange = Repository.getWeekRange()
+        viewModelScope.launch {
+            repository.getStatsInRange(weekRange.first, weekRange.second).collect { }
         }
     }
 }

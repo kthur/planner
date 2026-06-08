@@ -9,5 +9,7 @@ data class Goal(
     val id: Long = 0,
     val yearMonth: String,
     val category: Category,
-    val targetMinutes: Int
+    val description: String = "",
+    val targetMinutes: Int = 0,
+    val deadline: Long = 0
 )

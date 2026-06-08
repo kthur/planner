@@ -26,6 +26,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -55,12 +56,22 @@ import com.planner.tracker.ui.theme.categoryColor
 fun StatsScreen(
     currentYear: Int,
     currentMonth: Int,
-    stats: List<CategoryStat>,
+    monthlyStats: List<CategoryStat>,
+    dailyStats: List<CategoryStat>,
+    weeklyStats: List<CategoryStat>,
     onMonthChange: (Int, Int) -> Unit,
     onNavigateToGoals: () -> Unit
 ) {
+    var selectedTab by remember { mutableIntStateOf(0) }
     var year by remember(currentYear) { mutableIntStateOf(currentYear) }
     var month by remember(currentMonth) { mutableIntStateOf(currentMonth) }
+    val tabs = listOf("일간", "주간", "월간")
+
+    val stats = when (selectedTab) {
+        0 -> dailyStats
+        1 -> weeklyStats
+        else -> monthlyStats
+    }
 
     Column(
         modifier = Modifier
@@ -69,40 +80,53 @@ fun StatsScreen(
             .verticalScroll(rememberScrollState())
     ) {
         Text(
-            text = "월간 통계",
+            text = "통계",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            IconButton(onClick = {
-                month--
-                if (month < 1) { month = 12; year-- }
-                onMonthChange(year, month)
-            }) {
-                Icon(Icons.Default.ChevronLeft, "이전 달", tint = TextPrimary)
-            }
-            Text(
-                text = "${year}년 ${month}월",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            IconButton(onClick = {
-                month++
-                if (month > 12) { month = 1; year++ }
-                onMonthChange(year, month)
-            }) {
-                Icon(Icons.Default.ChevronRight, "다음 달", tint = TextPrimary)
+        TabRow(selectedTabIndex = selectedTab) {
+            tabs.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTab == index,
+                    onClick = { selectedTab = index },
+                    text = { Text(title) }
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (selectedTab == 2) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                IconButton(onClick = {
+                    month--
+                    if (month < 1) { month = 12; year-- }
+                    onMonthChange(year, month)
+                }) {
+                    Icon(Icons.Default.ChevronLeft, "이전 달", tint = TextPrimary)
+                }
+                Text(
+                    text = "${year}년 ${month}월",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                IconButton(onClick = {
+                    month++
+                    if (month > 12) { month = 1; year++ }
+                    onMonthChange(year, month)
+                }) {
+                    Icon(Icons.Default.ChevronRight, "다음 달", tint = TextPrimary)
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
         if (stats.isEmpty()) {
             Card(
@@ -111,7 +135,7 @@ fun StatsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "이 달에 기록된 데이터가 없습니다.\n항목을 추가하고 통계를 확인하세요.",
+                    text = "데이터가 없습니다.\n항목을 추가하고 통계를 확인하세요.",
                     color = TextSecondary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier

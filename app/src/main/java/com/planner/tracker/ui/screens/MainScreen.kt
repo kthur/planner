@@ -16,6 +16,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
@@ -27,7 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,6 +50,7 @@ import com.planner.tracker.ui.theme.CardBackground
 import com.planner.tracker.ui.theme.TextPrimary
 import com.planner.tracker.ui.theme.TextSecondary
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -54,16 +59,32 @@ fun MainScreen(
     selectedDate: Long,
     entries: List<Entry>,
     onDateSelected: (Long) -> Unit,
-    onAddEntry: (Category, Int, String) -> Unit,
+    onAddEntry: (Category, Int, String, Long, Long) -> Unit,
     onDeleteEntry: (Entry) -> Unit
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf(Category.HEALTH) }
-    var hours by remember { mutableIntStateOf(0) }
-    var minutes by remember { mutableIntStateOf(0) }
     var note by remember { mutableStateOf("") }
+    var isTracking by remember { mutableStateOf(false) }
+    var startTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var endTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var manualStartH by remember { mutableStateOf("") }
+    var manualStartM by remember { mutableStateOf("") }
+    var manualEndH by remember { mutableStateOf("") }
+    var manualEndM by remember { mutableStateOf("") }
 
+    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val dateFormat = remember { SimpleDateFormat("yyyy년 M월 d일 (E)", Locale.KOREAN) }
+
+    val cal = remember { Calendar.getInstance() }
+
+    fun calcMinutes(): Int {
+        val sh = manualStartH.toIntOrNull() ?: return 0
+        val sm = manualStartM.toIntOrNull() ?: return 0
+        val eh = manualEndH.toIntOrNull() ?: return 0
+        val em = manualEndM.toIntOrNull() ?: return 0
+        return (eh * 60 + em) - (sh * 60 + sm)
+    }
 
     if (showDatePicker) {
         DatePickerDialogScreen(
@@ -80,11 +101,22 @@ fun MainScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    val totalMinutes = hours * 60 + minutes
-                    if (totalMinutes > 0) {
-                        onAddEntry(selectedCategory, totalMinutes, note)
-                        hours = 0
-                        minutes = 0
+                    val minutes = calcMinutes()
+                    if (minutes > 0) {
+                        cal.timeInMillis = System.currentTimeMillis()
+                        cal.set(Calendar.HOUR_OF_DAY, manualStartH.toIntOrNull() ?: 0)
+                        cal.set(Calendar.MINUTE, manualStartM.toIntOrNull() ?: 0)
+                        cal.set(Calendar.SECOND, 0)
+                        cal.set(Calendar.MILLISECOND, 0)
+                        val sTime = cal.timeInMillis
+                        cal.set(Calendar.HOUR_OF_DAY, manualEndH.toIntOrNull() ?: 0)
+                        cal.set(Calendar.MINUTE, manualEndM.toIntOrNull() ?: 0)
+                        val eTime = cal.timeInMillis
+                        onAddEntry(selectedCategory, minutes, note, sTime, eTime)
+                        manualStartH = ""
+                        manualStartM = ""
+                        manualEndH = ""
+                        manualEndM = ""
                         note = ""
                     }
                 },
@@ -136,29 +168,94 @@ fun MainScreen(
                         onSelect = { selectedCategory = it }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedTextField(
-                            value = if (hours == 0) "" else hours.toString(),
-                            onValueChange = { hours = it.toIntOrNull() ?: 0 },
-                            label = { Text("시간") },
+                            value = manualStartH,
+                            onValueChange = { manualStartH = it },
+                            label = { Text("시작 시") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f),
                             singleLine = true
                         )
-                        Text("시간", color = TextSecondary)
+                        Text(":", color = TextSecondary)
                         OutlinedTextField(
-                            value = if (minutes == 0) "" else minutes.toString(),
-                            onValueChange = { minutes = it.toIntOrNull() ?: 0 },
+                            value = manualStartM,
+                            onValueChange = { manualStartM = it },
                             label = { Text("분") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f),
                             singleLine = true
                         )
-                        Text("분", color = TextSecondary)
                     }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = manualEndH,
+                            onValueChange = { manualEndH = it },
+                            label = { Text("종료 시") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        Text(":", color = TextSecondary)
+                        OutlinedTextField(
+                            value = manualEndM,
+                            onValueChange = { manualEndM = it },
+                            label = { Text("분") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val minutes = calcMinutes()
+                    val displayH = minutes / 60
+                    val displayM = minutes % 60
+                    Text(
+                        text = if (minutes > 0) "소요 시간: ${displayH}시간 ${displayM}분" else "시간을 입력하세요",
+                        color = if (minutes > 0) TextPrimary else TextSecondary,
+                        fontWeight = if (minutes > 0) FontWeight.Bold else FontWeight.Normal
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val now = Calendar.getInstance()
+                                manualStartH = now.get(Calendar.HOUR_OF_DAY).toString()
+                                manualStartM = now.get(Calendar.MINUTE).toString()
+                                isTracking = true
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Accent)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("지금 시작")
+                        }
+                        Button(
+                            onClick = {
+                                val now = Calendar.getInstance()
+                                manualEndH = now.get(Calendar.HOUR_OF_DAY).toString()
+                                manualEndM = now.get(Calendar.MINUTE).toString()
+                                isTracking = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Accent)
+                        ) {
+                            Icon(Icons.Default.Stop, contentDescription = null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("지금 종료")
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = note,

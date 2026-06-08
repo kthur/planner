@@ -18,6 +18,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -62,8 +63,14 @@ fun PlannerUI() {
     val yearly by viewModel.currentYear.collectAsState()
     val monthly by viewModel.currentMonth.collectAsState()
     val stats by viewModel.monthlyStats.collectAsState()
+    val dailyStats by viewModel.dailyStats.collectAsState()
+    val weeklyStats by viewModel.weeklyStats.collectAsState()
     val goals by viewModel.goals.collectAsState()
     val categoryProgress by viewModel.categoryProgress.collectAsState()
+
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == 1) viewModel.refreshTimeRanges()
+    }
 
     Scaffold(
         bottomBar = {
@@ -88,13 +95,15 @@ fun PlannerUI() {
                     selectedDate = selectedDate,
                     entries = entries,
                     onDateSelected = { viewModel.setSelectedDate(it) },
-                    onAddEntry = { cat, min, note -> viewModel.addEntry(cat, min, note) },
+                    onAddEntry = { cat, min, note, s, e -> viewModel.addEntry(cat, min, note, s, e) },
                     onDeleteEntry = { viewModel.deleteEntry(it) }
                 )
                 1 -> StatsScreen(
                     currentYear = yearly,
                     currentMonth = monthly,
-                    stats = stats,
+                    monthlyStats = stats,
+                    dailyStats = dailyStats,
+                    weeklyStats = weeklyStats,
                     onMonthChange = { y, m -> viewModel.setCurrentMonth(y, m) },
                     onNavigateToGoals = { selectedTab = 2 }
                 )
@@ -103,7 +112,7 @@ fun PlannerUI() {
                     currentMonth = monthly,
                     goals = goals,
                     categoryProgress = categoryProgress,
-                    onUpsertGoal = { cat, min -> viewModel.upsertGoal(cat, min) },
+                    onUpsertGoal = { viewModel.upsertGoal(it) },
                     onDeleteGoal = { viewModel.deleteGoal(it) },
                     onNavigateBack = { selectedTab = 0 }
                 )

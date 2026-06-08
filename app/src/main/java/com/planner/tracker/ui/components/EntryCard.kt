@@ -1,7 +1,6 @@
 package com.planner.tracker.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +30,9 @@ import com.planner.tracker.data.Entry
 import com.planner.tracker.ui.theme.TextPrimary
 import com.planner.tracker.ui.theme.TextSecondary
 import com.planner.tracker.ui.theme.categoryColor
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun EntryCard(
@@ -38,6 +41,8 @@ fun EntryCard(
     modifier: Modifier = Modifier
 ) {
     val color = categoryColor(entry.category)
+    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -64,8 +69,14 @@ fun EntryCard(
                     color = color,
                     fontWeight = FontWeight.SemiBold
                 )
+                if (entry.startTime > 0 && entry.endTime > 0) {
+                    Text(
+                        text = "${timeFormat.format(Date(entry.startTime))} - ${timeFormat.format(Date(entry.endTime))}",
+                        color = TextSecondary,
+                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall
+                    )
+                }
                 if (entry.note.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = entry.note,
                         color = TextSecondary,

@@ -24,7 +24,7 @@ interface EntryDao {
     suspend fun getEntriesBetweenOnce(start: Long, end: Long): List<Entry>
 
     @Query("SELECT category, SUM(minutes) as total FROM entries WHERE date >= :start AND date <= :end GROUP BY category")
-    fun getMonthlyStats(start: Long, end: Long): Flow<List<CategoryStat>>
+    fun getStatsInRange(start: Long, end: Long): Flow<List<CategoryStat>>
 
     @Query("SELECT SUM(minutes) FROM entries WHERE date >= :start AND date <= :end AND category = :category")
     fun getCategoryTotalInRange(category: Category, start: Long, end: Long): Flow<Int?>

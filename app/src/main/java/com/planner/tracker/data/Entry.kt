@@ -10,7 +10,9 @@ data class Entry(
     val date: Long,
     val category: Category,
     val minutes: Int,
-    val note: String = ""
+    val note: String = "",
+    val startTime: Long = 0,
+    val endTime: Long = 0
 )
 
 enum class Category(val displayName: String) {
