@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class PlannerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: Repository
@@ -47,7 +48,6 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     val categoryProgress: StateFlow<Map<Category, Pair<Int, Int>>>
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     init {
         val db = AppDatabase.getInstance(application)
         repository = Repository(db.entryDao(), db.goalDao())

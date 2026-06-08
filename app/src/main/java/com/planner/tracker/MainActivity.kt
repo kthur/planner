@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.planner.tracker.ui.screens.GoalsScreen
 import com.planner.tracker.ui.screens.MainScreen
@@ -111,6 +112,7 @@ fun PlannerUI() {
                     onMonthChange = { y, m -> viewModel.setCurrentMonth(y, m) },
                     onNavigateToGoals = { selectedTab = 2 },
                     onExport = {
+                        val ctx = LocalContext.current
                         viewModel.exportDataAsJson { json ->
                             try {
                                 val intent = Intent(Intent.ACTION_SEND).apply {
@@ -118,9 +120,9 @@ fun PlannerUI() {
                                     putExtra(Intent.EXTRA_TEXT, json)
                                     putExtra(Intent.EXTRA_SUBJECT, "Planner Backup")
                                 }
-                                startActivity(Intent.createChooser(intent, "데이터 내보내기"))
+                                ctx.startActivity(Intent.createChooser(intent, "데이터 내보내기"))
                             } catch (e: Exception) {
-                                Toast.makeText(this@MainActivity, "내보내기 실패", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(ctx, "내보내기 실패", Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
