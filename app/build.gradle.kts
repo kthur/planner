@@ -17,7 +17,7 @@ android {
     }
 
     signingConfigs {
-        create("ci") {
+        create("release") {
             storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
@@ -28,11 +28,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-            signingConfig = signingConfigs.getByName("ci")
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
