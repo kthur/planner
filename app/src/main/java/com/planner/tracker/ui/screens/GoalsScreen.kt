@@ -15,13 +15,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -42,13 +43,13 @@ import androidx.compose.ui.unit.dp
 import com.planner.tracker.data.Category
 import com.planner.tracker.data.Goal
 import com.planner.tracker.ui.components.CategorySelector
+import com.planner.tracker.ui.components.DatePickerDialogScreen
 import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.CardBackground
 import com.planner.tracker.ui.theme.TextPrimary
 import com.planner.tracker.ui.theme.TextSecondary
 import com.planner.tracker.ui.theme.categoryColor
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -63,11 +64,12 @@ fun GoalsScreen(
     onNavigateBack: () -> Unit
 ) {
     var showDialog by remember { mutableStateOf(false) }
+    var showDeadlinePicker by remember { mutableStateOf(false) }
     var editingGoal by remember { mutableStateOf<Goal?>(null) }
     var description by remember { mutableStateOf("") }
     var targetMinutes by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(Category.HEALTH) }
-    var deadlineText by remember { mutableStateOf("") }
+    var deadlineMillis by remember { mutableLongStateOf(0L) }
 
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
 
@@ -76,7 +78,7 @@ fun GoalsScreen(
         description = ""
         targetMinutes = ""
         selectedCategory = Category.HEALTH
-        deadlineText = ""
+        deadlineMillis = 0L
         showDialog = true
     }
 
@@ -85,8 +87,19 @@ fun GoalsScreen(
         description = goal.description
         selectedCategory = goal.category
         targetMinutes = if (goal.targetMinutes > 0) goal.targetMinutes.toString() else ""
-        deadlineText = if (goal.deadline > 0) dateFormat.format(Date(goal.deadline)) else ""
+        deadlineMillis = goal.deadline
         showDialog = true
+    }
+
+    if (showDeadlinePicker) {
+        DatePickerDialogScreen(
+            currentDate = if (deadlineMillis > 0) deadlineMillis else System.currentTimeMillis(),
+            onDateSelected = { date ->
+                deadlineMillis = date
+                showDeadlinePicker = false
+            },
+            onDismiss = { showDeadlinePicker = false }
+        )
     }
 
     Scaffold(
@@ -228,31 +241,30 @@ fun GoalsScreen(
                         singleLine = true
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = deadlineText,
-                        onValueChange = { deadlineText = it },
-                        label = { Text("기한 (YYYY-MM-DD, 선택사항)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (deadlineMillis > 0) "기한: ${dateFormat.format(Date(deadlineMillis))}" else "기한 없음",
+                            color = if (deadlineMillis > 0) TextPrimary else TextSecondary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { showDeadlinePicker = true }) {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = "기한 선택", tint = Accent)
+                        }
+                        if (deadlineMillis > 0) {
+                            TextButton(onClick = { deadlineMillis = 0L }) {
+                                Text("초기화", color = Accent)
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    val deadline = try {
-                        if (deadlineText.isNotBlank()) {
-                            val parts = deadlineText.split("-")
-                            val cal = Calendar.getInstance()
-                            cal.set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt(), 23, 59, 59)
-                            cal.timeInMillis
-                        } else 0L
-                    } catch (_: Exception) { 0L }
-
                     val goal = (editingGoal ?: Goal(yearMonth = yearMonth, category = selectedCategory)).copy(
                         category = selectedCategory,
                         description = description,
                         targetMinutes = targetMinutes.toIntOrNull() ?: 0,
-                        deadline = deadline
+                        deadline = deadlineMillis
                     )
                     onUpsertGoal(goal)
                     showDialog = false

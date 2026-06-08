@@ -45,6 +45,7 @@ import com.planner.tracker.data.Entry
 import com.planner.tracker.ui.components.CategorySelector
 import com.planner.tracker.ui.components.DatePickerDialogScreen
 import com.planner.tracker.ui.components.EntryCard
+import com.planner.tracker.ui.components.TimePickerDialogScreen
 import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.CardBackground
 import com.planner.tracker.ui.theme.TextPrimary
@@ -63,6 +64,8 @@ fun MainScreen(
     onDeleteEntry: (Entry) -> Unit
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf(Category.HEALTH) }
     var note by remember { mutableStateOf("") }
     var isTracking by remember { mutableStateOf(false) }
@@ -94,6 +97,46 @@ fun MainScreen(
                 showDatePicker = false
             },
             onDismiss = { showDatePicker = false }
+        )
+    }
+
+    if (showStartTimePicker) {
+        val now = Calendar.getInstance().apply { timeInMillis = startTime }
+        TimePickerDialogScreen(
+            currentHour = now.get(Calendar.HOUR_OF_DAY),
+            currentMinute = now.get(Calendar.MINUTE),
+            onTimeSelected = { h, m ->
+                manualStartH = h.toString()
+                manualStartM = m.toString()
+                cal.timeInMillis = System.currentTimeMillis()
+                cal.set(Calendar.HOUR_OF_DAY, h)
+                cal.set(Calendar.MINUTE, m)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                startTime = cal.timeInMillis
+                showStartTimePicker = false
+            },
+            onDismiss = { showStartTimePicker = false }
+        )
+    }
+
+    if (showEndTimePicker) {
+        val now = Calendar.getInstance().apply { timeInMillis = endTime }
+        TimePickerDialogScreen(
+            currentHour = now.get(Calendar.HOUR_OF_DAY),
+            currentMinute = now.get(Calendar.MINUTE),
+            onTimeSelected = { h, m ->
+                manualEndH = h.toString()
+                manualEndM = m.toString()
+                cal.timeInMillis = System.currentTimeMillis()
+                cal.set(Calendar.HOUR_OF_DAY, h)
+                cal.set(Calendar.MINUTE, m)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                endTime = cal.timeInMillis
+                showEndTimePicker = false
+            },
+            onDismiss = { showEndTimePicker = false }
         )
     }
 
@@ -190,6 +233,14 @@ fun MainScreen(
                             modifier = Modifier.weight(1f),
                             singleLine = true
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(onClick = { showStartTimePicker = true }) {
+                            Icon(
+                                Icons.Default.CalendarMonth,
+                                contentDescription = "시작 시간 선택",
+                                tint = Accent
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(
@@ -213,6 +264,14 @@ fun MainScreen(
                             modifier = Modifier.weight(1f),
                             singleLine = true
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(onClick = { showEndTimePicker = true }) {
+                            Icon(
+                                Icons.Default.CalendarMonth,
+                                contentDescription = "종료 시간 선택",
+                                tint = Accent
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     val minutes = calcMinutes()
@@ -233,6 +292,12 @@ fun MainScreen(
                                 val now = Calendar.getInstance()
                                 manualStartH = now.get(Calendar.HOUR_OF_DAY).toString()
                                 manualStartM = now.get(Calendar.MINUTE).toString()
+                                cal.timeInMillis = System.currentTimeMillis()
+                                cal.set(Calendar.HOUR_OF_DAY, now.get(Calendar.HOUR_OF_DAY))
+                                cal.set(Calendar.MINUTE, now.get(Calendar.MINUTE))
+                                cal.set(Calendar.SECOND, 0)
+                                cal.set(Calendar.MILLISECOND, 0)
+                                startTime = cal.timeInMillis
                                 isTracking = true
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Accent)
@@ -246,6 +311,12 @@ fun MainScreen(
                                 val now = Calendar.getInstance()
                                 manualEndH = now.get(Calendar.HOUR_OF_DAY).toString()
                                 manualEndM = now.get(Calendar.MINUTE).toString()
+                                cal.timeInMillis = System.currentTimeMillis()
+                                cal.set(Calendar.HOUR_OF_DAY, now.get(Calendar.HOUR_OF_DAY))
+                                cal.set(Calendar.MINUTE, now.get(Calendar.MINUTE))
+                                cal.set(Calendar.SECOND, 0)
+                                cal.set(Calendar.MILLISECOND, 0)
+                                endTime = cal.timeInMillis
                                 isTracking = false
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Accent)
