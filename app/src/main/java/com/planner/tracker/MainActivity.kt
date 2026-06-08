@@ -71,6 +71,7 @@ fun PlannerUI() {
     val weeklyDailyStats by viewModel.weeklyDailyStats.collectAsState()
     val goals by viewModel.goals.collectAsState()
     val categoryProgress by viewModel.categoryProgress.collectAsState()
+    val ctx = LocalContext.current
 
     LaunchedEffect(selectedTab) {
         if (selectedTab == 1) viewModel.refreshTimeRanges()
@@ -102,31 +103,30 @@ fun PlannerUI() {
                     onAddEntry = { cat, min, note, s, e -> viewModel.addEntry(cat, min, note, s, e) },
                     onDeleteEntry = { viewModel.deleteEntry(it) }
                 )
-                1 -> StatsScreen(
-                    currentYear = yearly,
-                    currentMonth = monthly,
-                    monthlyStats = stats,
-                    dailyStats = dailyStats,
-                    weeklyStats = weeklyStats,
-                    weeklyDailyStats = weeklyDailyStats,
-                    onMonthChange = { y, m -> viewModel.setCurrentMonth(y, m) },
-                    onNavigateToGoals = { selectedTab = 2 },
-                    onExport = {
-                        val ctx = LocalContext.current
-                        viewModel.exportDataAsJson { json ->
-                            try {
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, json)
-                                    putExtra(Intent.EXTRA_SUBJECT, "Planner Backup")
+                    1 -> StatsScreen(
+                        currentYear = yearly,
+                        currentMonth = monthly,
+                        monthlyStats = stats,
+                        dailyStats = dailyStats,
+                        weeklyStats = weeklyStats,
+                        weeklyDailyStats = weeklyDailyStats,
+                        onMonthChange = { y, m -> viewModel.setCurrentMonth(y, m) },
+                        onNavigateToGoals = { selectedTab = 2 },
+                        onExport = {
+                            viewModel.exportDataAsJson { json ->
+                                try {
+                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, json)
+                                        putExtra(Intent.EXTRA_SUBJECT, "Planner Backup")
+                                    }
+                                    ctx.startActivity(Intent.createChooser(intent, "데이터 내보내기"))
+                                } catch (e: Exception) {
+                                    Toast.makeText(ctx, "내보내기 실패", Toast.LENGTH_SHORT).show()
                                 }
-                                ctx.startActivity(Intent.createChooser(intent, "데이터 내보내기"))
-                            } catch (e: Exception) {
-                                Toast.makeText(ctx, "내보내기 실패", Toast.LENGTH_SHORT).show()
                             }
                         }
-                    }
-                )
+                    )
                 2 -> GoalsScreen(
                     currentYear = yearly,
                     currentMonth = monthly,
