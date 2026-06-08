@@ -30,11 +30,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -69,6 +71,8 @@ fun MainScreen(
     var selectedCategory by remember { mutableStateOf(Category.HEALTH) }
     var note by remember { mutableStateOf("") }
     var isTracking by remember { mutableStateOf(false) }
+    var trackingStartedAt by remember { mutableLongStateOf(0L) }
+    var elapsedSeconds by remember { mutableLongStateOf(0L) }
     var startTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var endTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var manualStartH by remember { mutableStateOf("") }
@@ -80,6 +84,15 @@ fun MainScreen(
     val dateFormat = remember { SimpleDateFormat("yyyy년 M월 d일 (E)", Locale.KOREAN) }
 
     val cal = remember { Calendar.getInstance() }
+
+    LaunchedEffect(isTracking) {
+        if (isTracking) {
+            while (true) {
+                elapsedSeconds = (System.currentTimeMillis() - trackingStartedAt) / 1000
+                delay(1000)
+            }
+        }
+    }
 
     fun calcMinutes(): Int {
         val sh = manualStartH.toIntOrNull() ?: return 0
@@ -274,14 +287,26 @@ fun MainScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    val minutes = calcMinutes()
-                    val displayH = minutes / 60
-                    val displayM = minutes % 60
-                    Text(
-                        text = if (minutes > 0) "소요 시간: ${displayH}시간 ${displayM}분" else "시간을 입력하세요",
-                        color = if (minutes > 0) TextPrimary else TextSecondary,
-                        fontWeight = if (minutes > 0) FontWeight.Bold else FontWeight.Normal
-                    )
+                    if (isTracking) {
+                        val h = elapsedSeconds / 3600
+                        val m = (elapsedSeconds % 3600) / 60
+                        val s = elapsedSeconds % 60
+                        Text(
+                            text = "⏱ ${String.format("%02d:%02d:%02d", h, m, s)}",
+                            color = Accent,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                    } else {
+                        val minutes = calcMinutes()
+                        val displayH = minutes / 60
+                        val displayM = minutes % 60
+                        Text(
+                            text = if (minutes > 0) "소요 시간: ${displayH}시간 ${displayM}분" else "시간을 입력하세요",
+                            color = if (minutes > 0) TextPrimary else TextSecondary,
+                            fontWeight = if (minutes > 0) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Row(
@@ -298,8 +323,11 @@ fun MainScreen(
                                 cal.set(Calendar.SECOND, 0)
                                 cal.set(Calendar.MILLISECOND, 0)
                                 startTime = cal.timeInMillis
+                                trackingStartedAt = cal.timeInMillis
+                                elapsedSeconds = 0
                                 isTracking = true
                             },
+                            enabled = !isTracking,
                             colors = ButtonDefaults.buttonColors(containerColor = Accent)
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
@@ -319,6 +347,7 @@ fun MainScreen(
                                 endTime = cal.timeInMillis
                                 isTracking = false
                             },
+                            enabled = isTracking,
                             colors = ButtonDefaults.buttonColors(containerColor = Accent)
                         ) {
                             Icon(Icons.Default.Stop, contentDescription = null)

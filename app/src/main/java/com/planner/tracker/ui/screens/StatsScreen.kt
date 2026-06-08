@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -47,10 +49,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.planner.tracker.data.Category
 import com.planner.tracker.data.CategoryStat
+import com.planner.tracker.data.DailyStat
 import com.planner.tracker.ui.theme.CardBackground
 import com.planner.tracker.ui.theme.TextPrimary
 import com.planner.tracker.ui.theme.TextSecondary
 import com.planner.tracker.ui.theme.categoryColor
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun StatsScreen(
@@ -59,8 +65,10 @@ fun StatsScreen(
     monthlyStats: List<CategoryStat>,
     dailyStats: List<CategoryStat>,
     weeklyStats: List<CategoryStat>,
+    weeklyDailyStats: List<DailyStat>,
     onMonthChange: (Int, Int) -> Unit,
-    onNavigateToGoals: () -> Unit
+    onNavigateToGoals: () -> Unit,
+    onExport: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var year by remember(currentYear) { mutableIntStateOf(currentYear) }
@@ -79,11 +87,17 @@ fun StatsScreen(
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Text(
-            text = "통계",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "통계",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = onExport) {
+                Icon(Icons.Default.Share, contentDescription = "내보내기", tint = Accent)
+            }
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -224,6 +238,65 @@ fun StatsScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            if (selectedTab == 1 && weeklyDailyStats.isNotEmpty()) {
+                val dayFormat = remember { SimpleDateFormat("E", Locale.KOREAN) }
+                val maxDaily = weeklyDailyStats.maxOf { it.total }.coerceAtLeast(1)
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = CardBackground),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "일별 기록",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        weeklyDailyStats.forEach { daily ->
+                            val pct = daily.total.toFloat() / maxDaily
+                            val dayName = dayFormat.format(Date(daily.date))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = dayName,
+                                    color = TextPrimary,
+                                    modifier = Modifier.width(40.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(20.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Accent.copy(alpha = 0.15f))
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxHeight()
+                                            .fillMaxWidth(pct)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Accent)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "${daily.total}분",
+                                    color = TextSecondary,
+                                    modifier = Modifier.width(50.dp),
+                                    textAlign = TextAlign.End
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             Card(
                 shape = RoundedCornerShape(16.dp),

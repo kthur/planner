@@ -22,6 +22,7 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE entries ADD COLUMN endTime INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE goals ADD COLUMN description TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE goals ADD COLUMN deadline INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE goals ADD COLUMN isCompleted INTEGER NOT NULL DEFAULT 0")
             }
         }
 

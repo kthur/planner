@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.planner.tracker.data.AppDatabase
 import com.planner.tracker.data.Category
 import com.planner.tracker.data.CategoryStat
+import com.planner.tracker.data.DailyStat
 import com.planner.tracker.data.Entry
 import com.planner.tracker.data.Goal
 import com.planner.tracker.data.Repository
@@ -40,6 +41,8 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     val weeklyStats: StateFlow<List<CategoryStat>>
 
+    val weeklyDailyStats: StateFlow<List<DailyStat>>
+
     val goals: StateFlow<List<Goal>>
 
     val categoryProgress: StateFlow<Map<Category, Pair<Int, Int>>>
@@ -66,6 +69,11 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         weeklyStats = repository.getStatsInRange(
+            Repository.getWeekRange().first,
+            Repository.getWeekRange().second
+        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+        weeklyDailyStats = repository.getDailyStatsInRange(
             Repository.getWeekRange().first,
             Repository.getWeekRange().second
         ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -135,6 +143,26 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         val weekRange = Repository.getWeekRange()
         viewModelScope.launch {
             repository.getStatsInRange(weekRange.first, weekRange.second).collect { }
+        }
+    }
+
+    fun exportDataAsJson(onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val entries = repository.getEntriesBetweenOnce(0L, Long.MAX_VALUE)
+            val allGoals = repository.getAllGoals().stateIn(
+                viewModelScope, SharingStarted.Eagerly, emptyList()
+            ).value
+            val sb = StringBuilder()
+            sb.appendLine("{\"entries\":[")
+            entries.forEachIndexed { i, e ->
+                sb.appendLine("""{"id":${e.id},"date":${e.date},"category":"${e.category.name}","minutes":${e.minutes},"note":"${e.note.replace("\"", "\\\"")}","startTime":${e.startTime},"endTime":${e.endTime}}${if (i < entries.lastIndex) "," else ""}""")
+            }
+            sb.appendLine("],\"goals\":[")
+            allGoals.forEachIndexed { i, g ->
+                sb.appendLine("""{"id":${g.id},"yearMonth":"${g.yearMonth}","category":"${g.category.name}","description":"${g.description.replace("\"", "\\\"")}","targetMinutes":${g.targetMinutes},"deadline":${g.deadline},"isCompleted":${g.isCompleted}}${if (i < allGoals.lastIndex) "," else ""}""")
+            }
+            sb.appendLine("]}")
+            onResult(sb.toString())
         }
     }
 }

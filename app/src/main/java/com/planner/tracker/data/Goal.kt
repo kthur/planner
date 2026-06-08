@@ -11,5 +11,6 @@ data class Goal(
     val category: Category,
     val description: String = "",
     val targetMinutes: Int = 0,
-    val deadline: Long = 0
+    val deadline: Long = 0,
+    val isCompleted: Boolean = false
 )

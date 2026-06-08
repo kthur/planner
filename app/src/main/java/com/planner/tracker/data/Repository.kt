@@ -19,6 +19,9 @@ class Repository(private val entryDao: EntryDao, private val goalDao: GoalDao) {
     fun getCategoryTotalInRange(category: Category, start: Long, end: Long): Flow<Int?> =
         entryDao.getCategoryTotalInRange(category, start, end)
 
+    fun getDailyStatsInRange(start: Long, end: Long): Flow<List<DailyStat>> =
+        entryDao.getDailyStatsInRange(start, end)
+
     suspend fun insertEntry(entry: Entry) = entryDao.insert(entry)
 
     suspend fun deleteEntry(entry: Entry) = entryDao.delete(entry)

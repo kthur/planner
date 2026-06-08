@@ -1,6 +1,8 @@
 package com.planner.tracker
 
+import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -65,6 +67,7 @@ fun PlannerUI() {
     val stats by viewModel.monthlyStats.collectAsState()
     val dailyStats by viewModel.dailyStats.collectAsState()
     val weeklyStats by viewModel.weeklyStats.collectAsState()
+    val weeklyDailyStats by viewModel.weeklyDailyStats.collectAsState()
     val goals by viewModel.goals.collectAsState()
     val categoryProgress by viewModel.categoryProgress.collectAsState()
 
@@ -104,8 +107,23 @@ fun PlannerUI() {
                     monthlyStats = stats,
                     dailyStats = dailyStats,
                     weeklyStats = weeklyStats,
+                    weeklyDailyStats = weeklyDailyStats,
                     onMonthChange = { y, m -> viewModel.setCurrentMonth(y, m) },
-                    onNavigateToGoals = { selectedTab = 2 }
+                    onNavigateToGoals = { selectedTab = 2 },
+                    onExport = {
+                        viewModel.exportDataAsJson { json ->
+                            try {
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, json)
+                                    putExtra(Intent.EXTRA_SUBJECT, "Planner Backup")
+                                }
+                                startActivity(Intent.createChooser(intent, "데이터 내보내기"))
+                            } catch (e: Exception) {
+                                Toast.makeText(this@MainActivity, "내보내기 실패", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
                 )
                 2 -> GoalsScreen(
                     currentYear = yearly,
