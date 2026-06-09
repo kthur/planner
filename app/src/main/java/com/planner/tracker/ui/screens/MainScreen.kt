@@ -105,6 +105,7 @@ fun MainScreen(
     var timerMinutes by remember { mutableStateOf("") }
     var showAlarmDialog by remember { mutableStateOf(false) }
     var showBottomSheet by remember { mutableStateOf(false) }
+    var inputMode by remember { mutableStateOf(true) } // true = direct input, false = real-time tracking
     var searchQuery by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState()
     var alarmTriggered by remember { mutableStateOf(false) }
@@ -370,68 +371,102 @@ fun MainScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedTextField(
-                        value = manualStartH,
-                        onValueChange = { manualStartH = it },
-                        label = { Text("시작 시") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    Text(":", color = TextSecondary)
-                    OutlinedTextField(
-                        value = manualStartM,
-                        onValueChange = { manualStartM = it },
-                        label = { Text("분") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(onClick = { showStartTimePicker = true }) {
-                        Icon(
-                            Icons.Default.CalendarMonth,
-                            contentDescription = "시작 시간 선택",
-                            tint = Accent
+                    TextButton(
+                        onClick = { inputMode = true },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = if (inputMode) Accent else TextSecondary
                         )
+                    ) {
+                        Text("직접 입력", fontWeight = if (inputMode) FontWeight.Bold else FontWeight.Normal)
+                    }
+                    TextButton(
+                        onClick = { inputMode = false },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = if (!inputMode) Accent else TextSecondary
+                        )
+                    ) {
+                        Text("실시간 측정", fontWeight = if (!inputMode) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = manualEndH,
-                        onValueChange = { manualEndH = it },
-                        label = { Text("종료 시") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    Text(":", color = TextSecondary)
-                    OutlinedTextField(
-                        value = manualEndM,
-                        onValueChange = { manualEndM = it },
-                        label = { Text("분") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(onClick = { showEndTimePicker = true }) {
-                        Icon(
-                            Icons.Default.CalendarMonth,
-                            contentDescription = "종료 시간 선택",
-                            tint = Accent
-                        )
-                    }
-                }
+
                 Spacer(modifier = Modifier.height(8.dp))
-                if (isTracking) {
+
+                if (inputMode) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = manualStartH,
+                            onValueChange = { manualStartH = it },
+                            label = { Text("시작 시") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        Text(":", color = TextSecondary)
+                        OutlinedTextField(
+                            value = manualStartM,
+                            onValueChange = { manualStartM = it },
+                            label = { Text("분") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(onClick = { showStartTimePicker = true }) {
+                            Icon(
+                                Icons.Default.CalendarMonth,
+                                contentDescription = "시작 시간 선택",
+                                tint = Accent
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = manualEndH,
+                            onValueChange = { manualEndH = it },
+                            label = { Text("종료 시") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        Text(":", color = TextSecondary)
+                        OutlinedTextField(
+                            value = manualEndM,
+                            onValueChange = { manualEndM = it },
+                            label = { Text("분") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(onClick = { showEndTimePicker = true }) {
+                            Icon(
+                                Icons.Default.CalendarMonth,
+                                contentDescription = "종료 시간 선택",
+                                tint = Accent
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val minutes = calcMinutesFromTimestamps()
+                    val displayH = minutes / 60
+                    val displayM = minutes % 60
+                    Text(
+                        text = if (minutes > 0) "소요 시간: ${displayH}시간 ${displayM}분" else "시간을 입력하세요",
+                        color = if (minutes > 0) TextPrimary else TextSecondary,
+                        fontWeight = if (minutes > 0) FontWeight.Bold else FontWeight.Normal,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
                     val h = elapsedSeconds / 3600
                     val m = (elapsedSeconds % 3600) / 60
                     val s = elapsedSeconds % 60
@@ -439,82 +474,84 @@ fun MainScreen(
                         text = "⏱ ${String.format("%02d:%02d:%02d", h, m, s)}",
                         color = Accent,
                         fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.headlineLarge,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        textAlign = TextAlign.Center
                     )
-                } else {
-                    val minutes = calcMinutesFromTimestamps()
-                    val displayH = minutes / 60
-                    val displayM = minutes % 60
-                    Text(
-                        text = if (minutes > 0) "소요 시간: ${displayH}시간 ${displayM}분" else "시간을 입력하세요",
-                        color = if (minutes > 0) TextPrimary else TextSecondary,
-                        fontWeight = if (minutes > 0) FontWeight.Bold else FontWeight.Normal
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = timerMinutes,
-                        onValueChange = { timerMinutes = it.filter { c -> c.isDigit() } },
-                        label = { Text("타이머(분)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        enabled = !isTracking
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = {
-                            val now = Calendar.getInstance()
-                            manualStartH = now.get(Calendar.HOUR_OF_DAY).toString()
-                            manualStartM = now.get(Calendar.MINUTE).toString()
-                            cal.timeInMillis = System.currentTimeMillis()
-                            cal.set(Calendar.HOUR_OF_DAY, now.get(Calendar.HOUR_OF_DAY))
-                            cal.set(Calendar.MINUTE, now.get(Calendar.MINUTE))
-                            cal.set(Calendar.SECOND, now.get(Calendar.SECOND))
-                            cal.set(Calendar.MILLISECOND, now.get(Calendar.MILLISECOND))
-                            startTime = cal.timeInMillis
-                            trackingStartedAt = cal.timeInMillis
-                            elapsedSeconds = 0
-                            isTracking = true
-                            showTrackingNotification(ctx)
-                        },
-                        enabled = !isTracking,
-                        colors = ButtonDefaults.buttonColors(containerColor = Accent)
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("지금 시작")
+                    if (!isTracking) {
+                        Button(
+                            onClick = {
+                                val now = Calendar.getInstance()
+                                manualStartH = now.get(Calendar.HOUR_OF_DAY).toString()
+                                manualStartM = now.get(Calendar.MINUTE).toString()
+                                cal.timeInMillis = System.currentTimeMillis()
+                                cal.set(Calendar.HOUR_OF_DAY, now.get(Calendar.HOUR_OF_DAY))
+                                cal.set(Calendar.MINUTE, now.get(Calendar.MINUTE))
+                                cal.set(Calendar.SECOND, now.get(Calendar.SECOND))
+                                cal.set(Calendar.MILLISECOND, now.get(Calendar.MILLISECOND))
+                                startTime = cal.timeInMillis
+                                trackingStartedAt = cal.timeInMillis
+                                elapsedSeconds = 0
+                                isTracking = true
+                                showTrackingNotification(ctx)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Accent),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("시작")
+                        }
                     }
-                    Button(
-                        onClick = {
-                            val now = Calendar.getInstance()
-                            manualEndH = now.get(Calendar.HOUR_OF_DAY).toString()
-                            manualEndM = now.get(Calendar.MINUTE).toString()
-                            cal.timeInMillis = System.currentTimeMillis()
-                            cal.set(Calendar.HOUR_OF_DAY, now.get(Calendar.HOUR_OF_DAY))
-                            cal.set(Calendar.MINUTE, now.get(Calendar.MINUTE))
-                            cal.set(Calendar.SECOND, now.get(Calendar.SECOND))
-                            cal.set(Calendar.MILLISECOND, now.get(Calendar.MILLISECOND))
-                            endTime = cal.timeInMillis
-                            isTracking = false
-                            alarmTriggered = false
-                            cancelTrackingNotification(ctx)
-                        },
-                        enabled = isTracking,
-                        colors = ButtonDefaults.buttonColors(containerColor = Accent)
-                    ) {
-                        Icon(Icons.Default.Stop, contentDescription = null)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("지금 종료")
+
+                    if (isTracking) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = timerMinutes,
+                                onValueChange = { timerMinutes = it.filter { c -> c.isDigit() } },
+                                label = { Text("알림 (분)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                enabled = !isTracking
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                val now = Calendar.getInstance()
+                                manualEndH = now.get(Calendar.HOUR_OF_DAY).toString()
+                                manualEndM = now.get(Calendar.MINUTE).toString()
+                                cal.timeInMillis = System.currentTimeMillis()
+                                cal.set(Calendar.HOUR_OF_DAY, now.get(Calendar.HOUR_OF_DAY))
+                                cal.set(Calendar.MINUTE, now.get(Calendar.MINUTE))
+                                cal.set(Calendar.SECOND, now.get(Calendar.SECOND))
+                                cal.set(Calendar.MILLISECOND, now.get(Calendar.MILLISECOND))
+                                endTime = cal.timeInMillis
+                                isTracking = false
+                                alarmTriggered = false
+                                cancelTrackingNotification(ctx)
+                                // auto-save
+                                val minutes = ((endTime - startTime) / 60000).toInt()
+                                if (minutes > 0) {
+                                    onAddEntry(selectedCategory, minutes, note, startTime, endTime)
+                                    note = ""
+                                    showBottomSheet = false
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Accent),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Stop, contentDescription = null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("종료 및 저장")
+                        }
                     }
                 }
 
@@ -526,33 +563,36 @@ fun MainScreen(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = {
-                        val minutes = calcMinutesFromTimestamps()
-                        if (minutes > 0) {
-                            cal.timeInMillis = System.currentTimeMillis()
-                            cal.set(Calendar.HOUR_OF_DAY, manualStartH.toIntOrNull() ?: 0)
-                            cal.set(Calendar.MINUTE, manualStartM.toIntOrNull() ?: 0)
-                            cal.set(Calendar.SECOND, 0)
-                            cal.set(Calendar.MILLISECOND, 0)
-                            val sTime = cal.timeInMillis
-                            cal.set(Calendar.HOUR_OF_DAY, manualEndH.toIntOrNull() ?: 0)
-                            cal.set(Calendar.MINUTE, manualEndM.toIntOrNull() ?: 0)
-                            val eTime = cal.timeInMillis
-                            onAddEntry(selectedCategory, minutes, note, sTime, eTime)
-                            manualStartH = ""
-                            manualStartM = ""
-                            manualEndH = ""
-                            manualEndM = ""
-                            note = ""
-                            showBottomSheet = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Accent),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("저장", color = TextPrimary)
+
+                if (inputMode) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            val minutes = calcMinutesFromTimestamps()
+                            if (minutes > 0) {
+                                cal.timeInMillis = System.currentTimeMillis()
+                                cal.set(Calendar.HOUR_OF_DAY, manualStartH.toIntOrNull() ?: 0)
+                                cal.set(Calendar.MINUTE, manualStartM.toIntOrNull() ?: 0)
+                                cal.set(Calendar.SECOND, 0)
+                                cal.set(Calendar.MILLISECOND, 0)
+                                val sTime = cal.timeInMillis
+                                cal.set(Calendar.HOUR_OF_DAY, manualEndH.toIntOrNull() ?: 0)
+                                cal.set(Calendar.MINUTE, manualEndM.toIntOrNull() ?: 0)
+                                val eTime = cal.timeInMillis
+                                onAddEntry(selectedCategory, minutes, note, sTime, eTime)
+                                manualStartH = ""
+                                manualStartM = ""
+                                manualEndH = ""
+                                manualEndM = ""
+                                note = ""
+                                showBottomSheet = false
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Accent),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("저장", color = TextPrimary)
+                    }
                 }
             }
         }
@@ -561,7 +601,11 @@ fun MainScreen(
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showBottomSheet = true },
+                onClick = {
+                    showBottomSheet = true
+                    inputMode = !isTracking
+                    timerMinutes = ""
+                },
                 containerColor = Accent
             ) {
                 Icon(Icons.Default.Add, contentDescription = "추가", tint = TextPrimary)

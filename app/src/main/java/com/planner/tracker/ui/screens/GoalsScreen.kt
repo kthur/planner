@@ -1,6 +1,7 @@
 package com.planner.tracker.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -133,11 +134,34 @@ fun GoalsScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (goals.isEmpty()) {
-                Text(
-                    text = "설정된 목표가 없습니다.\n우측 하단 + 버튼으로 목표를 추가하세요.",
-                    color = TextSecondary,
-                    modifier = Modifier.padding(vertical = 24.dp)
-                )
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = CardBackground),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🎯", style = MaterialTheme.typography.displaySmall)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "목표가 없습니다",
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "우측 하단 + 버튼으로\n카테고리별 목표를 추가해보세요",
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
             }
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {

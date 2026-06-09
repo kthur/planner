@@ -57,8 +57,17 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Build release AAB
-        run: ./gradlew bundleRelease
+      - name: Build release APK and AAB
+        run: |
+          ./gradlew assembleRelease
+          ./gradlew bundleRelease
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: planner-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
 
       - name: Upload Release AAB
         uses: actions/upload-artifact@v4
@@ -76,7 +85,9 @@ jobs:
             Automated release build from main branch.
             Commit: ${{ github.sha }}
             Date: ${{ github.event.head_commit.timestamp }}
-          files: app/build/outputs/bundle/release/*.aab
+          files: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
           make_latest: true
           allowUpdates: true
           failOnUnmatchedFiles: false

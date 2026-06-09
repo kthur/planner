@@ -28,7 +28,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -434,56 +433,6 @@ fun StatsScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = CardBackground),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "카테고리별 상세",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    stats.forEach { stat ->
-                        val color = categoryColor(stat.category)
-                        val pct = if (totalMinutes > 0) stat.total.toFloat() / totalMinutes else 0f
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stat.category.displayName,
-                                modifier = Modifier.width(80.dp),
-                                color = TextPrimary,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            LinearProgressIndicator(
-                                progress = pct,
-                                color = color,
-                                trackColor = color.copy(alpha = 0.2f),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(8.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "${stat.total}분",
-                                color = TextSecondary,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.width(50.dp),
-                                textAlign = TextAlign.End
-                            )
-                        }
-                    }
-                }
             }
         }
     }
