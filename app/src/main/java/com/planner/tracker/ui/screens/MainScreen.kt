@@ -1,6 +1,10 @@
 package com.planner.tracker.ui.screens
 
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,10 +22,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,9 +36,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,9 +48,11 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationCompat
 import com.planner.tracker.data.Category
 import com.planner.tracker.data.Entry
 import com.planner.tracker.ui.components.CategorySelector
@@ -63,7 +74,8 @@ fun MainScreen(
     entries: List<Entry>,
     onDateSelected: (Long) -> Unit,
     onAddEntry: (Category, Int, String, Long, Long) -> Unit,
-    onDeleteEntry: (Entry) -> Unit
+    onDeleteEntry: (Entry) -> Unit,
+    onUpdateEntry: (Entry) -> Unit
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     var showStartTimePicker by remember { mutableStateOf(false) }
@@ -79,22 +91,35 @@ fun MainScreen(
     var manualStartM by remember { mutableStateOf("") }
     var manualEndH by remember { mutableStateOf("") }
     var manualEndM by remember { mutableStateOf("") }
+    var editingEntry by remember { mutableStateOf<Entry?>(null) }
+    var timerMinutes by remember { mutableStateOf("") }
+    var showAlarmDialog by remember { mutableStateOf(false) }
+    var alarmTriggered by remember { mutableStateOf(false) }
 
-    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val dateFormat = remember { SimpleDateFormat("yyyy년 M월 d일 (E)", Locale.KOREAN) }
-
     val cal = remember { Calendar.getInstance() }
+    val ctx = LocalContext.current
 
-    LaunchedEffect(isTracking) {
+    LaunchedEffect(isTracking, alarmTriggered) {
         if (isTracking) {
+            val targetSec = timerMinutes.toIntOrNull()?.times(60) ?: 0
+            alarmTriggered = false
             while (true) {
                 elapsedSeconds = (System.currentTimeMillis() - trackingStartedAt) / 1000
+                if (targetSec > 0 && elapsedSeconds >= targetSec && !alarmTriggered) {
+                    alarmTriggered = true
+                    showAlarmDialog = true
+                    sendTimerNotification(ctx)
+                }
                 delay(1000)
             }
         }
     }
 
-    fun calcMinutes(): Int {
+    fun calcMinutesFromTimestamps(): Int {
+        if (startTime > 0 && endTime > 0 && endTime > startTime) {
+            return ((endTime - startTime) / 60000).toInt()
+        }
         val sh = manualStartH.toIntOrNull() ?: return 0
         val sm = manualStartM.toIntOrNull() ?: return 0
         val eh = manualEndH.toIntOrNull() ?: return 0
@@ -121,7 +146,7 @@ fun MainScreen(
             onTimeSelected = { h, m ->
                 manualStartH = h.toString()
                 manualStartM = m.toString()
-                cal.timeInMillis = System.currentTimeMillis()
+                cal.timeInMillis = startTime
                 cal.set(Calendar.HOUR_OF_DAY, h)
                 cal.set(Calendar.MINUTE, m)
                 cal.set(Calendar.SECOND, 0)
@@ -141,7 +166,7 @@ fun MainScreen(
             onTimeSelected = { h, m ->
                 manualEndH = h.toString()
                 manualEndM = m.toString()
-                cal.timeInMillis = System.currentTimeMillis()
+                cal.timeInMillis = endTime
                 cal.set(Calendar.HOUR_OF_DAY, h)
                 cal.set(Calendar.MINUTE, m)
                 cal.set(Calendar.SECOND, 0)
@@ -153,11 +178,145 @@ fun MainScreen(
         )
     }
 
+    editingEntry?.let { entry ->
+        val editCat = remember(entry) { mutableStateOf(entry.category) }
+        val editNote = remember(entry) { mutableStateOf(entry.note) }
+        val editStartH = remember(entry) { mutableStateOf(
+            if (entry.startTime > 0) {
+                Calendar.getInstance().apply { timeInMillis = entry.startTime }.get(Calendar.HOUR_OF_DAY).toString()
+            } else ""
+        ) }
+        val editStartM = remember(entry) { mutableStateOf(
+            if (entry.startTime > 0) {
+                Calendar.getInstance().apply { timeInMillis = entry.startTime }.get(Calendar.MINUTE).toString()
+            } else ""
+        ) }
+        val editEndH = remember(entry) { mutableStateOf(
+            if (entry.endTime > 0) {
+                Calendar.getInstance().apply { timeInMillis = entry.endTime }.get(Calendar.HOUR_OF_DAY).toString()
+            } else ""
+        ) }
+        val editEndM = remember(entry) { mutableStateOf(
+            if (entry.endTime > 0) {
+                Calendar.getInstance().apply { timeInMillis = entry.endTime }.get(Calendar.MINUTE).toString()
+            } else ""
+        ) }
+
+        AlertDialog(
+            onDismissRequest = { editingEntry = null },
+            title = { Text("항목 수정") },
+            text = {
+                Column {
+                    CategorySelector(
+                        selected = editCat.value,
+                        onSelect = { editCat.value = it }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = editStartH.value,
+                            onValueChange = { editStartH.value = it },
+                            label = { Text("시작 시") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        Text(":", color = TextSecondary)
+                        OutlinedTextField(
+                            value = editStartM.value,
+                            onValueChange = { editStartM.value = it },
+                            label = { Text("분") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = editEndH.value,
+                            onValueChange = { editEndH.value = it },
+                            label = { Text("종료 시") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        Text(":", color = TextSecondary)
+                        OutlinedTextField(
+                            value = editEndM.value,
+                            onValueChange = { editEndM.value = it },
+                            label = { Text("분") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = editNote.value,
+                        onValueChange = { editNote.value = it },
+                        label = { Text("메모") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val sh = editStartH.value.toIntOrNull() ?: 0
+                    val sm = editStartM.value.toIntOrNull() ?: 0
+                    val eh = editEndH.value.toIntOrNull() ?: 0
+                    val em = editEndM.value.toIntOrNull() ?: 0
+                    cal.timeInMillis = entry.date
+                    cal.set(Calendar.HOUR_OF_DAY, sh)
+                    cal.set(Calendar.MINUTE, sm)
+                    cal.set(Calendar.SECOND, 0)
+                    cal.set(Calendar.MILLISECOND, 0)
+                    val sTime = cal.timeInMillis
+                    cal.set(Calendar.HOUR_OF_DAY, eh)
+                    cal.set(Calendar.MINUTE, em)
+                    val eTime = cal.timeInMillis
+                    val mins = if (eTime > sTime) ((eTime - sTime) / 60000).toInt() else 0
+                    onUpdateEntry(
+                        entry.copy(
+                            category = editCat.value,
+                            note = editNote.value,
+                            minutes = mins,
+                            startTime = sTime,
+                            endTime = eTime
+                        )
+                    )
+                    editingEntry = null
+                }) {
+                    Text("저장")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingEntry = null }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+
+    if (showAlarmDialog) {
+        AlertDialog(
+            onDismissRequest = { showAlarmDialog = false },
+            title = { Text("⏰ 타이머 완료") },
+            text = { Text("설정한 ${timerMinutes}분이 지났습니다!") },
+            confirmButton = {
+                TextButton(onClick = { showAlarmDialog = false }) {
+                    Text("확인")
+                }
+            }
+        )
+    }
+
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    val minutes = calcMinutes()
+                    val minutes = calcMinutesFromTimestamps()
                     if (minutes > 0) {
                         cal.timeInMillis = System.currentTimeMillis()
                         cal.set(Calendar.HOUR_OF_DAY, manualStartH.toIntOrNull() ?: 0)
@@ -298,13 +457,28 @@ fun MainScreen(
                             style = MaterialTheme.typography.titleLarge
                         )
                     } else {
-                        val minutes = calcMinutes()
+                        val minutes = calcMinutesFromTimestamps()
                         val displayH = minutes / 60
                         val displayM = minutes % 60
                         Text(
                             text = if (minutes > 0) "소요 시간: ${displayH}시간 ${displayM}분" else "시간을 입력하세요",
                             color = if (minutes > 0) TextPrimary else TextSecondary,
                             fontWeight = if (minutes > 0) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = timerMinutes,
+                            onValueChange = { timerMinutes = it.filter { c -> c.isDigit() } },
+                            label = { Text("타이머(분)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            enabled = !isTracking
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -320,8 +494,8 @@ fun MainScreen(
                                 cal.timeInMillis = System.currentTimeMillis()
                                 cal.set(Calendar.HOUR_OF_DAY, now.get(Calendar.HOUR_OF_DAY))
                                 cal.set(Calendar.MINUTE, now.get(Calendar.MINUTE))
-                                cal.set(Calendar.SECOND, 0)
-                                cal.set(Calendar.MILLISECOND, 0)
+                                cal.set(Calendar.SECOND, now.get(Calendar.SECOND))
+                                cal.set(Calendar.MILLISECOND, now.get(Calendar.MILLISECOND))
                                 startTime = cal.timeInMillis
                                 trackingStartedAt = cal.timeInMillis
                                 elapsedSeconds = 0
@@ -342,10 +516,11 @@ fun MainScreen(
                                 cal.timeInMillis = System.currentTimeMillis()
                                 cal.set(Calendar.HOUR_OF_DAY, now.get(Calendar.HOUR_OF_DAY))
                                 cal.set(Calendar.MINUTE, now.get(Calendar.MINUTE))
-                                cal.set(Calendar.SECOND, 0)
-                                cal.set(Calendar.MILLISECOND, 0)
+                                cal.set(Calendar.SECOND, now.get(Calendar.SECOND))
+                                cal.set(Calendar.MILLISECOND, now.get(Calendar.MILLISECOND))
                                 endTime = cal.timeInMillis
                                 isTracking = false
+                                alarmTriggered = false
                             },
                             enabled = isTracking,
                             colors = ButtonDefaults.buttonColors(containerColor = Accent)
@@ -369,31 +544,55 @@ fun MainScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                text = "기록된 항목",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (entries.isEmpty()) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "이 날짜에 기록된 항목이 없습니다.",
-                    color = TextSecondary,
-                    modifier = Modifier.padding(vertical = 24.dp)
+                    text = "기록된 항목",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
                 )
-            }
+                Spacer(modifier = Modifier.height(8.dp))
 
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(entries, key = { it.id }) { entry ->
-                    EntryCard(
-                        entry = entry,
-                        onDelete = { onDeleteEntry(entry) }
-                    )
+                if (entries.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "이 날짜에 기록된 항목이 없습니다.",
+                            color = TextSecondary
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(entries, key = { it.id }) { entry ->
+                            EntryCard(
+                                entry = entry,
+                                onDelete = { onDeleteEntry(entry) },
+                                onEdit = { editingEntry = entry }
+                            )
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+private fun sendTimerNotification(context: Context) {
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    val notification = NotificationCompat.Builder(context, "timer_alarm")
+        .setSmallIcon(android.R.drawable.ic_dialog_info)
+        .setContentTitle("타이머 완료")
+        .setContentText("설정한 시간이 되었습니다!")
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setAutoCancel(true)
+        .build()
+    manager.notify(1001, notification)
 }

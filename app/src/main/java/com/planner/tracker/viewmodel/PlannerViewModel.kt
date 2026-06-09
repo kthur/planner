@@ -131,6 +131,12 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun updateEntry(entry: Entry) {
+        viewModelScope.launch {
+            repository.updateEntry(entry)
+        }
+    }
+
     fun upsertGoal(goal: Goal) {
         viewModelScope.launch {
             repository.upsertGoal(goal)

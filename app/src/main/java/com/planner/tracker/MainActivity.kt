@@ -1,11 +1,16 @@
 package com.planner.tracker
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -36,15 +41,38 @@ import com.planner.tracker.ui.theme.PlannerTheme
 import com.planner.tracker.viewmodel.PlannerViewModel
 
 class MainActivity : ComponentActivity() {
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        createNotificationChannel()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+
         setContent {
             PlannerTheme {
                 PlannerUI()
             }
         }
     }
+}
+
+private fun ComponentActivity.createNotificationChannel() {
+    val channel = NotificationChannel(
+        "timer_alarm",
+        "타이머 알림",
+        NotificationManager.IMPORTANCE_HIGH
+    ).apply {
+        enableVibration(true)
+        description = "타이머가 완료되면 알림"
+    }
+    val manager = getSystemService(NotificationManager::class.java)
+    manager.createNotificationChannel(channel)
 }
 
 data class NavItem(val label: String, val icon: ImageVector)
@@ -97,7 +125,8 @@ fun PlannerUI() {
                     entries = entries,
                     onDateSelected = { viewModel.setSelectedDate(it) },
                     onAddEntry = { cat, min, note, s, e -> viewModel.addEntry(cat, min, note, s, e) },
-                    onDeleteEntry = { viewModel.deleteEntry(it) }
+                    onDeleteEntry = { viewModel.deleteEntry(it) },
+                    onUpdateEntry = { viewModel.updateEntry(it) }
                 )
                     1 -> StatsScreen(
                         currentYear = yearly,

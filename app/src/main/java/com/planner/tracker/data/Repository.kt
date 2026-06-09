@@ -24,6 +24,8 @@ class Repository(private val entryDao: EntryDao, private val goalDao: GoalDao) {
 
     suspend fun insertEntry(entry: Entry) = entryDao.insert(entry)
 
+    suspend fun updateEntry(entry: Entry) = entryDao.update(entry)
+
     suspend fun deleteEntry(entry: Entry) = entryDao.delete(entry)
 
     suspend fun deleteEntryById(id: Long) = entryDao.deleteById(id)
