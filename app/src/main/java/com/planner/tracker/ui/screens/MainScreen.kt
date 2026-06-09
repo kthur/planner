@@ -3,6 +3,7 @@ package com.planner.tracker.ui.screens
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -92,7 +93,9 @@ fun MainScreen(
     var manualEndH by remember { mutableStateOf("") }
     var manualEndM by remember { mutableStateOf("") }
     var editingEntry by remember { mutableStateOf<Entry?>(null) }
+    var deleteConfirmEntry by remember { mutableStateOf<Entry?>(null) }
     var timerMinutes by remember { mutableStateOf("") }
+    var showInputCard by remember { mutableStateOf(true) }
     var showAlarmDialog by remember { mutableStateOf(false) }
     var alarmTriggered by remember { mutableStateOf(false) }
 
@@ -299,6 +302,27 @@ fun MainScreen(
         )
     }
 
+    deleteConfirmEntry?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { deleteConfirmEntry = null },
+            title = { Text("항목 삭제") },
+            text = { Text("\"${entry.category.displayName}\" 항목을 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteEntry(entry)
+                    deleteConfirmEntry = null
+                }) {
+                    Text("삭제", color = Accent)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteConfirmEntry = null }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+
     if (showAlarmDialog) {
         AlertDialog(
             onDismissRequest = { showAlarmDialog = false },
@@ -372,17 +396,31 @@ fun MainScreen(
                 colors = CardDefaults.cardColors(containerColor = CardBackground)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "기록 추가",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showInputCard = !showInputCard },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "기록 추가",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = if (showInputCard) "▲" else "▼",
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
-                    CategorySelector(
-                        selected = selectedCategory,
-                        onSelect = { selectedCategory = it }
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    if (showInputCard) {
+                        CategorySelector(
+                            selected = selectedCategory,
+                            onSelect = { selectedCategory = it }
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -541,15 +579,31 @@ fun MainScreen(
                     )
                 }
             }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "기록된 항목",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                val totalDayMinutes = entries.sumOf { it.minutes }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "기록된 항목",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (totalDayMinutes > 0) {
+                        Text(
+                            text = "총 ${totalDayMinutes}분 (${totalDayMinutes / 60}시간 ${totalDayMinutes % 60}분)",
+                            color = Accent,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
 
                 if (entries.isEmpty()) {
@@ -574,7 +628,7 @@ fun MainScreen(
                         items(entries, key = { it.id }) { entry ->
                             EntryCard(
                                 entry = entry,
-                                onDelete = { onDeleteEntry(entry) },
+                                onDelete = { deleteConfirmEntry = entry },
                                 onEdit = { editingEntry = entry }
                             )
                         }

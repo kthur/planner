@@ -16,10 +16,10 @@ data class Entry(
 )
 
 enum class Category(val displayName: String) {
-    HEALTH("Health"),
-    MIND("Mind"),
-    FAMILY("Family"),
-    LANGUAGE("Language"),
-    FINANCE("Finance"),
-    TECHNOLOGY("Technology")
+    HEALTH("운동"),
+    MIND("독서"),
+    FAMILY("가족"),
+    LANGUAGE("외국어"),
+    FINANCE("재테크"),
+    TECHNOLOGY("기술")
 }
