@@ -77,7 +77,8 @@ fun StatsScreen(
     onMonthChange: (Int, Int) -> Unit,
     onDateSelected: (Long) -> Unit,
     onNavigateToGoals: () -> Unit,
-    onExport: () -> Unit
+    onExport: () -> Unit,
+    onImport: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var year by remember(currentYear) { mutableIntStateOf(currentYear) }
@@ -101,17 +102,20 @@ fun StatsScreen(
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "통계",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = onExport) {
-                Icon(Icons.Default.Share, contentDescription = "내보내기", tint = Accent)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "통계",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onImport) {
+                    Text("복원", color = Accent)
+                }
+                IconButton(onClick = onExport) {
+                    Icon(Icons.Default.Share, contentDescription = "내보내기", tint = Accent)
+                }
             }
-        }
 
         Spacer(modifier = Modifier.height(8.dp))
 

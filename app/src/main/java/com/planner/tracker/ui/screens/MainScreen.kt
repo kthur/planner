@@ -485,6 +485,7 @@ fun MainScreen(
                             trackingStartedAt = cal.timeInMillis
                             elapsedSeconds = 0
                             isTracking = true
+                            showTrackingNotification(ctx)
                         },
                         enabled = !isTracking,
                         colors = ButtonDefaults.buttonColors(containerColor = Accent)
@@ -506,6 +507,7 @@ fun MainScreen(
                             endTime = cal.timeInMillis
                             isTracking = false
                             alarmTriggered = false
+                            cancelTrackingNotification(ctx)
                         },
                         enabled = isTracking,
                         colors = ButtonDefaults.buttonColors(containerColor = Accent)
@@ -725,4 +727,21 @@ private fun sendTimerNotification(context: Context) {
         .setAutoCancel(true)
         .build()
     manager.notify(1001, notification)
+}
+
+private fun showTrackingNotification(context: Context) {
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    val notification = NotificationCompat.Builder(context, "timer_alarm")
+        .setSmallIcon(android.R.drawable.ic_dialog_info)
+        .setContentTitle("⏱ 트래킹 중")
+        .setContentText("현재 시간을 측정하고 있습니다")
+        .setPriority(NotificationCompat.PRIORITY_LOW)
+        .setOngoing(true)
+        .build()
+    manager.notify(1002, notification)
+}
+
+private fun cancelTrackingNotification(context: Context) {
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    manager.cancel(1002)
 }

@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.Calendar
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -166,6 +168,47 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             }
             sb.appendLine("]}")
             onResult(sb.toString())
+        }
+    }
+
+    fun importDataFromJson(json: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val root = JSONObject(json)
+                val entriesArray = root.getJSONArray("entries")
+                for (i in 0 until entriesArray.length()) {
+                    val obj = entriesArray.getJSONObject(i)
+                    val entry = Entry(
+                        id = obj.getLong("id"),
+                        date = obj.getLong("date"),
+                        category = Category.valueOf(obj.getString("category")),
+                        minutes = obj.getInt("minutes"),
+                        note = obj.optString("note", ""),
+                        startTime = obj.getLong("startTime"),
+                        endTime = obj.getLong("endTime")
+                    )
+                    repository.insertEntry(entry)
+                }
+                val goalsArray = root.optJSONArray("goals")
+                if (goalsArray != null) {
+                    for (i in 0 until goalsArray.length()) {
+                        val obj = goalsArray.getJSONObject(i)
+                        val goal = Goal(
+                            id = obj.getLong("id"),
+                            yearMonth = obj.getString("yearMonth"),
+                            category = Category.valueOf(obj.getString("category")),
+                            description = obj.optString("description", ""),
+                            targetMinutes = obj.getInt("targetMinutes"),
+                            deadline = obj.getLong("deadline"),
+                            isCompleted = obj.getBoolean("isCompleted")
+                        )
+                        repository.upsertGoal(goal)
+                    }
+                }
+                onResult(true, "성공적으로 복원되었습니다 (entries: ${entriesArray.length()})")
+            } catch (e: Exception) {
+                onResult(false, "복원 실패: ${e.message}")
+            }
         }
     }
 }

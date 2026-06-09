@@ -1,5 +1,6 @@
 package com.planner.tracker
 
+import android.net.Uri
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
@@ -10,6 +11,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,6 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.planner.tracker.ui.screens.GoalsScreen
@@ -108,6 +111,36 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
     val monthlyDailyStats by viewModel.monthlyDailyStats.collectAsState()
     val ctx = LocalContext.current
 
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.exportDataAsJson { json ->
+                try {
+                    ctx.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                    Toast.makeText(ctx, "내보내기 완료", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(ctx, "내보내기 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val json = ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: ""
+                viewModel.importDataFromJson(json) { success, msg ->
+                    Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(ctx, "불러오기 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar(
@@ -154,20 +187,8 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                         onMonthChange = { y, m -> viewModel.setCurrentMonth(y, m) },
                         onDateSelected = { viewModel.setSelectedDate(it) },
                         onNavigateToGoals = { selectedTab = 2 },
-                        onExport = {
-                            viewModel.exportDataAsJson { json ->
-                                try {
-                                    val intent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, json)
-                                        putExtra(Intent.EXTRA_SUBJECT, "Planner Backup")
-                                    }
-                                    ctx.startActivity(Intent.createChooser(intent, "데이터 내보내기"))
-                                } catch (e: Exception) {
-                                    Toast.makeText(ctx, "내보내기 실패", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
+                        onExport = { exportLauncher.launch("planner_backup_${System.currentTimeMillis()}.json") },
+                        onImport = { importLauncher.launch(arrayOf("application/json")) }
                     )
                 2 -> GoalsScreen(
                     currentYear = yearly,
