@@ -126,6 +126,29 @@ fun StatsScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            val presets = listOf("오늘", "이번 주", "이번 달")
+            presets.forEach { label ->
+                val cal = Calendar.getInstance()
+                TextButton(
+                    onClick = {
+                        when (label) {
+                            "오늘" -> { onDateSelected(cal.timeInMillis); selectedDay = cal.timeInMillis; selectedTab = 0 }
+                            "이번 주" -> { selectedDay = cal.timeInMillis; onDateSelected(cal.timeInMillis); selectedTab = 1 }
+                            "이번 달" -> { onMonthChange(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1); selectedTab = 2 }
+                        }
+                    }
+                ) {
+                    Text(label, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         when (selectedTab) {
             0 -> {
                 val cal = remember { Calendar.getInstance() }
@@ -239,20 +262,34 @@ fun StatsScreen(
         }
 
         if (stats.isEmpty()) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = CardBackground),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "데이터가 없습니다.\n항목을 추가하고 통계를 확인하세요.",
-                    color = TextSecondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp)
-                )
-            }
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = CardBackground),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("📊", style = MaterialTheme.typography.displaySmall)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "통계 데이터가 없습니다",
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "기록 탭에서 활동을 추가하면\n여기에 통계가 표시됩니다",
+                            color = TextSecondary,
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
         } else {
             val totalMinutes = stats.sumOf { it.total }
 

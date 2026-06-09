@@ -57,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
 import com.planner.tracker.data.Category
@@ -103,6 +104,7 @@ fun MainScreen(
     var timerMinutes by remember { mutableStateOf("") }
     var showAlarmDialog by remember { mutableStateOf(false) }
     var showBottomSheet by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState()
     var alarmTriggered by remember { mutableStateOf(false) }
 
@@ -611,18 +613,60 @@ fun MainScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("검색...", color = TextSecondary) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodySmall
+                )
+                Spacer(modifier = Modifier.height(8.dp))
 
-                if (entries.isEmpty()) {
+                val filteredEntries = remember(entries, searchQuery) {
+                    if (searchQuery.isBlank()) entries
+                    else entries.filter { e ->
+                        e.note.contains(searchQuery, ignoreCase = true) ||
+                        e.category.displayName.contains(searchQuery, ignoreCase = true)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (filteredEntries.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "이 날짜에 기록된 항목이 없습니다.",
-                            color = TextSecondary
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (searchQuery.isNotBlank()) {
+                                Text(
+                                    text = "검색 결과가 없습니다",
+                                    color = TextSecondary,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            } else {
+                                Text(
+                                    text = "📝",
+                                    style = MaterialTheme.typography.displaySmall
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "아직 기록이 없습니다",
+                                    color = TextPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "하단의 + 버튼을 눌러\n새로운 항목을 추가해보세요",
+                                    color = TextSecondary,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -631,7 +675,7 @@ fun MainScreen(
                             .weight(1f),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(entries, key = { it.id }) { entry ->
+                        items(filteredEntries, key = { it.id }) { entry ->
                             val dismissState = rememberDismissState(
                                 confirmValueChange = {
                                     if (it == DismissValue.DismissedToStart) {
