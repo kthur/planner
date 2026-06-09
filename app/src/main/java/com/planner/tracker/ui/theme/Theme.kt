@@ -1,7 +1,9 @@
 package com.planner.tracker.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
 private val DarkColorScheme = darkColorScheme(
@@ -18,10 +20,27 @@ private val DarkColorScheme = darkColorScheme(
     onSurfaceVariant = TextSecondary
 )
 
+private val LightColorScheme = lightColorScheme(
+    primary = Accent,
+    secondary = DarkBlue,
+    tertiary = Navy,
+    background = LightBackground,
+    surface = LightSurface,
+    surfaceVariant = LightCardBackground,
+    onPrimary = TextOnAccent,
+    onSecondary = TextPrimary,
+    onBackground = TextPrimary,
+    onSurface = TextPrimary,
+    onSurfaceVariant = TextSecondary
+)
+
 @Composable
-fun PlannerTheme(content: @Composable () -> Unit) {
+fun PlannerTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
+) {
     MaterialTheme(
-        colorScheme = DarkColorScheme,
+        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
         typography = PlannerTypography,
         content = content
     )

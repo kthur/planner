@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material3.Icon
@@ -55,7 +56,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            PlannerTheme {
+            PlannerTheme(darkTheme = isDarkMode) {
                 PlannerUI()
             }
         }
@@ -87,6 +88,7 @@ private val navItems = listOf(
 fun PlannerUI() {
     val viewModel: PlannerViewModel = viewModel()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var isDarkMode by rememberSaveable { mutableStateOf(true) }
 
     val selectedDate by viewModel.selectedDate.collectAsState()
     val entries by viewModel.entriesForSelectedDate.collectAsState()
@@ -113,6 +115,13 @@ fun PlannerUI() {
                         icon = { Icon(item.icon, contentDescription = item.label) },
                         label = { Text(item.label) },
                         alwaysShowLabel = true
+                    )
+                }
+                IconButton(onClick = { isDarkMode = !isDarkMode }) {
+                    Icon(
+                        imageVector = Icons.Default.DarkMode,
+                        contentDescription = if (isDarkMode) "라이트 모드" else "다크 모드",
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }

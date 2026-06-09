@@ -11,6 +11,11 @@ val SurfaceColor = Color(0xFF16213E)
 val TextPrimary = Color(0xFFEEEEEE)
 val TextSecondary = Color(0xFFAAAAAA)
 
+val LightBackground = Color(0xFFF5F5F5)
+val LightSurface = Color(0xFFFFFFFF)
+val LightCardBackground = Color(0xFFFFFFFF)
+val TextOnAccent = Color(0xFFFFFFFF)
+
 val HealthColor = Color(0xFF4CAF50)
 val MindColor = Color(0xFF2196F3)
 val FamilyColor = Color(0xFFFF9800)
