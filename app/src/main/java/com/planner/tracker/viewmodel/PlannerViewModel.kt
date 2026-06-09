@@ -1,21 +1,30 @@
 package com.planner.tracker.viewmodel
 
 import android.app.Application
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import androidx.core.app.NotificationCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.planner.tracker.data.AppDatabase
 import com.planner.tracker.data.Category
 import com.planner.tracker.data.CategoryStat
+import com.planner.tracker.data.DailyCategoryStat
 import com.planner.tracker.data.DailyStat
 import com.planner.tracker.data.Entry
 import com.planner.tracker.data.Goal
 import com.planner.tracker.data.Repository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -51,6 +60,23 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
     val goals: StateFlow<List<Goal>>
 
     val categoryProgress: StateFlow<Map<Category, Pair<Int, Int>>>
+
+    private val _isTracking = MutableStateFlow(false)
+    val isTracking: StateFlow<Boolean> = _isTracking
+
+    private val _elapsedSeconds = MutableStateFlow(0L)
+    val elapsedSeconds: StateFlow<Long> = _elapsedSeconds
+
+    private val _alarmTriggered = MutableStateFlow(false)
+    val alarmTriggered: StateFlow<Boolean> = _alarmTriggered
+
+    private var _trackingStartedAt = 0L
+    private var trackingJob: Job? = null
+    private var timerTargetSec = 0
+
+    val weeklyDailyCategoryStats: StateFlow<List<DailyCategoryStat>>
+
+    val monthlyDailyCategoryMap: StateFlow<Map<Long, List<Category>>>
 
     init {
         val db = AppDatabase.getInstance(application)
@@ -98,6 +124,31 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             val statMap = stats.associate { it.category to it.total }
             goals.associate { goal ->
                 goal.category to ((statMap[goal.category] ?: 0) to goal.targetMinutes)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+        weeklyDailyCategoryStats = _selectedDate.flatMapLatest { date ->
+            flow {
+                val (start, end) = Repository.getWeekRange(date)
+                val entries = repository.getEntriesBetweenOnce(start, end)
+                val result = entries.groupBy { it.date }.flatMap { (day, dayEntries) ->
+                    dayEntries.groupBy { it.category }.map { (cat, catEntries) ->
+                        DailyCategoryStat(day, cat, catEntries.sumOf { it.minutes })
+                    }
+                }
+                emit(result)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+        monthlyDailyCategoryMap = combine(_currentYear, _currentMonth) { y, m ->
+            Repository.getMonthRange(y, m)
+        }.flatMapLatest { (start, end) ->
+            flow {
+                val entries = repository.getEntriesBetweenOnce(start, end)
+                val result = entries.groupBy { it.date }.mapValues { (_, dayEntries) ->
+                    dayEntries.map { it.category }.distinct()
+                }
+                emit(result)
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
     }
@@ -149,6 +200,117 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             repository.deleteGoal(id)
         }
+    }
+
+    fun startTracking(timerMinutes: String) {
+        val now = System.currentTimeMillis()
+        _trackingStartedAt = now
+        _elapsedSeconds.value = 0
+        _isTracking.value = true
+        _alarmTriggered.value = false
+        timerTargetSec = timerMinutes.toIntOrNull()?.times(60) ?: 0
+        val hasTimer = timerMinutes.toIntOrNull()?.let { it > 0 } == true
+        updateTrackingNotification(0, hasTimer, timerMinutes.toIntOrNull() ?: 0)
+        trackingJob?.cancel()
+        trackingJob = viewModelScope.launch {
+            while (true) {
+                val secs = (System.currentTimeMillis() - _trackingStartedAt) / 1000
+                _elapsedSeconds.value = secs
+                updateTrackingNotification(secs, hasTimer, timerMinutes.toIntOrNull() ?: 0)
+                if (timerTargetSec > 0 && secs >= timerTargetSec && !_alarmTriggered.value) {
+                    _alarmTriggered.value = true
+                    sendTimerNotification()
+                }
+                delay(1000)
+            }
+        }
+    }
+
+    fun stopTrackingAndSave(category: Category, note: String): Pair<Long, Long>? {
+        trackingJob?.cancel()
+        trackingJob = null
+        cancelTrackingNotification()
+        val now = System.currentTimeMillis()
+        val minutes = ((now - _trackingStartedAt) / 60000).toInt()
+        _isTracking.value = false
+        _alarmTriggered.value = false
+        if (minutes > 0) {
+            val dayRange = Repository.getDayRange(_trackingStartedAt)
+            val entry = Entry(
+                date = dayRange.first,
+                category = category,
+                minutes = minutes,
+                note = note,
+                startTime = _trackingStartedAt,
+                endTime = now
+            )
+            viewModelScope.launch { repository.insertEntry(entry) }
+            return Pair(_trackingStartedAt, now)
+        }
+        return null
+    }
+
+    fun cancelTracking() {
+        trackingJob?.cancel()
+        trackingJob = null
+        cancelTrackingNotification()
+        _isTracking.value = false
+        _alarmTriggered.value = false
+    }
+
+    fun clearAlarmTriggered() {
+        _alarmTriggered.value = false
+    }
+
+    private fun updateTrackingNotification(seconds: Long, isTimer: Boolean, timerMinutes: Int) {
+        val ctx = getApplication<Application>()
+        val h = seconds / 3600; val m = (seconds % 3600) / 60; val s = seconds % 60
+        val timeStr = String.format("%02d:%02d:%02d", h, m, s)
+        val text = if (isTimer && timerMinutes > 0) {
+            val remaining = timerMinutes * 60 - seconds
+            if (remaining > 0) "남은 시간: ${remaining / 60}분 ${remaining % 60}초"
+            else "시간 초과!"
+        } else timeStr
+
+        val intent = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)?.apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            ctx, 0, intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val notification = NotificationCompat.Builder(ctx, "tracking_channel")
+            .setContentTitle("현재시간을 측정하고 있습니다")
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setOngoing(true)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+
+        val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.notify(1002, notification)
+    }
+
+    private fun cancelTrackingNotification() {
+        val ctx = getApplication<Application>()
+        val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(1002)
+    }
+
+    private fun sendTimerNotification() {
+        val ctx = getApplication<Application>()
+        val notification = NotificationCompat.Builder(ctx, "timer_alarm")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("타이머 완료")
+            .setContentText("설정한 시간이 되었습니다!")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+        val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.notify(1001, notification)
     }
 
     fun exportDataAsJson(onResult: (String) -> Unit) {

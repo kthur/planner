@@ -15,6 +15,12 @@ data class Entry(
     val endTime: Long = 0
 )
 
+data class DailyCategoryStat(
+    val date: Long,
+    val category: Category,
+    val total: Int
+)
+
 enum class Category(val displayName: String) {
     HEALTH("운동"),
     MIND("독서"),

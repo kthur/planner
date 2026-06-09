@@ -49,9 +49,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.planner.tracker.data.Category
 import com.planner.tracker.data.CategoryStat
+import com.planner.tracker.data.DailyCategoryStat
 import com.planner.tracker.data.DailyStat
 import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.CardBackground
@@ -72,7 +72,9 @@ fun StatsScreen(
     dailyStats: List<CategoryStat>,
     weeklyStats: List<CategoryStat>,
     weeklyDailyStats: List<DailyStat>,
+    weeklyDailyCategoryStats: List<DailyCategoryStat>,
     monthlyDailyStats: List<DailyStat>,
+    monthlyDailyCategoryMap: Map<Long, List<Category>>,
     onMonthChange: (Int, Int) -> Unit,
     onDateSelected: (Long) -> Unit,
     onNavigateToGoals: () -> Unit,
@@ -91,115 +93,39 @@ fun StatsScreen(
         else -> monthlyStats
     }
 
-    val dateSet = remember(monthlyDailyStats) {
-        monthlyDailyStats.map { it.date }.toSet()
-    }
-
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
+        modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())
     ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "통계",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = onImport) {
-                    Text("복원", color = Accent)
-                }
-                IconButton(onClick = onExport) {
-                    Icon(Icons.Default.Share, contentDescription = "내보내기", tint = Accent)
-                }
-            }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("통계", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            TextButton(onClick = onImport) { Text("복원", color = Accent) }
+            IconButton(onClick = onExport) { Icon(Icons.Default.Share, contentDescription = "내보내기", tint = Accent) }
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
         TabRow(selectedTabIndex = selectedTab) {
             tabs.forEachIndexed { index, title ->
-                Tab(
-                    selected = selectedTab == index,
-                    onClick = { selectedTab = index },
-                    text = { Text(title) }
-                )
+                Tab(selected = selectedTab == index, onClick = { selectedTab = index }, text = { Text(title) })
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            val presets = listOf("오늘", "이번 주", "이번 달")
-            presets.forEach { label ->
-                val cal = Calendar.getInstance()
-                TextButton(
-                    onClick = {
-                        when (label) {
-                            "오늘" -> { onDateSelected(cal.timeInMillis); selectedDay = cal.timeInMillis; selectedTab = 0 }
-                            "이번 주" -> { selectedDay = cal.timeInMillis; onDateSelected(cal.timeInMillis); selectedTab = 1 }
-                            "이번 달" -> { onMonthChange(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1); selectedTab = 2 }
-                        }
-                    }
-                ) {
-                    Text(label, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
         when (selectedTab) {
             0 -> {
                 val cal = remember { Calendar.getInstance() }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    IconButton(onClick = {
-                        cal.timeInMillis = selectedDay
-                        cal.add(Calendar.DAY_OF_MONTH, -1)
-                        selectedDay = cal.timeInMillis
-                        onDateSelected(selectedDay)
-                    }) {
-                        Icon(Icons.Default.ChevronLeft, "이전 날", tint = TextPrimary)
-                    }
-                    Text(
-                        text = SimpleDateFormat("yyyy년 M월 d일 (E)", Locale.KOREAN).format(Date(selectedDay)),
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                    IconButton(onClick = {
-                        cal.timeInMillis = selectedDay
-                        cal.add(Calendar.DAY_OF_MONTH, 1)
-                        selectedDay = cal.timeInMillis
-                        onDateSelected(selectedDay)
-                    }) {
-                        Icon(Icons.Default.ChevronRight, "다음 날", tint = TextPrimary)
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.DAY_OF_MONTH, -1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronLeft, "이전 날", tint = TextPrimary) }
+                    Text(text = SimpleDateFormat("yyyy년 M월 d일 (E)", Locale.KOREAN).format(Date(selectedDay)), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
+                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.DAY_OF_MONTH, 1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronRight, "다음 날", tint = TextPrimary) }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }
             1 -> {
                 val cal = remember { Calendar.getInstance() }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    IconButton(onClick = {
-                        cal.timeInMillis = selectedDay
-                        cal.add(Calendar.WEEK_OF_YEAR, -1)
-                        selectedDay = cal.timeInMillis
-                        onDateSelected(selectedDay)
-                    }) {
-                        Icon(Icons.Default.ChevronLeft, "이전 주", tint = TextPrimary)
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.WEEK_OF_YEAR, -1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronLeft, "이전 주", tint = TextPrimary) }
                     Text(
                         text = {
                             cal.timeInMillis = selectedDay
@@ -213,105 +139,38 @@ fun StatsScreen(
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
-                    IconButton(onClick = {
-                        cal.timeInMillis = selectedDay
-                        cal.add(Calendar.WEEK_OF_YEAR, 1)
-                        selectedDay = cal.timeInMillis
-                        onDateSelected(selectedDay)
-                    }) {
-                        Icon(Icons.Default.ChevronRight, "다음 주", tint = TextPrimary)
-                    }
+                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.WEEK_OF_YEAR, 1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronRight, "다음 주", tint = TextPrimary) }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }
             2 -> {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    IconButton(onClick = {
-                        month--
-                        if (month < 1) { month = 12; year-- }
-                        onMonthChange(year, month)
-                    }) {
-                        Icon(Icons.Default.ChevronLeft, "이전 달", tint = TextPrimary)
-                    }
-                    Text(
-                        text = "${year}년 ${month}월",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                    IconButton(onClick = {
-                        month++
-                        if (month > 12) { month = 1; year++ }
-                        onMonthChange(year, month)
-                    }) {
-                        Icon(Icons.Default.ChevronRight, "다음 달", tint = TextPrimary)
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                    IconButton(onClick = { month--; if (month < 1) { month = 12; year-- }; onMonthChange(year, month) }) { Icon(Icons.Default.ChevronLeft, "이전 달", tint = TextPrimary) }
+                    Text(text = "${year}년 ${month}월", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
+                    IconButton(onClick = { month++; if (month > 12) { month = 1; year++ }; onMonthChange(year, month) }) { Icon(Icons.Default.ChevronRight, "다음 달", tint = TextPrimary) }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-
-                MonthCalendar(
-                    year = year,
-                    month = month,
-                    dateSet = dateSet,
-                    onDateClick = { millis ->
-                        selectedDay = millis
-                        onDateSelected(millis)
-                    }
-                )
+                MonthCalendar(year = year, month = month, dailyCategoryMap = monthlyDailyCategoryMap, onDateClick = { millis -> selectedDay = millis; onDateSelected(millis) })
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
 
         if (stats.isEmpty()) {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = CardBackground),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("📊", style = MaterialTheme.typography.displaySmall)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "통계 데이터가 없습니다",
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "기록 탭에서 활동을 추가하면\n여기에 통계가 표시됩니다",
-                            color = TextSecondary,
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+            Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardBackground), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("📊", style = MaterialTheme.typography.displaySmall)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(text = "통계 데이터가 없습니다", color = TextPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = "기록 탭에서 활동을 추가하면\n여기에 통계가 표시됩니다", color = TextSecondary, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
                 }
+            }
         } else {
             val totalMinutes = stats.sumOf { it.total }
 
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = CardBackground),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "총 ${totalMinutes}분 (${totalMinutes / 60}시간 ${totalMinutes % 60}분)",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
+            Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardBackground), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = "총 ${totalMinutes}분 (${totalMinutes / 60}시간 ${totalMinutes % 60}분)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val strokeWidth = 40f
@@ -321,54 +180,21 @@ fun StatsScreen(
                         var startAngle = -90f
                         stats.forEach { stat ->
                             val sweepAngle = (stat.total.toFloat() / totalMinutes) * 360f
-                            drawArc(
-                                color = categoryColor(stat.category),
-                                startAngle = startAngle,
-                                sweepAngle = sweepAngle,
-                                useCenter = false,
-                                style = Stroke(width = strokeWidth, cap = StrokeCap.Butt),
-                                size = Size(canvasSize.width - strokeWidth, canvasSize.height - strokeWidth),
-                                topLeft = Offset(padding, padding)
-                            )
+                            drawArc(color = categoryColor(stat.category), startAngle = startAngle, sweepAngle = sweepAngle, useCenter = false, style = Stroke(width = strokeWidth, cap = StrokeCap.Butt), size = Size(canvasSize.width - strokeWidth, canvasSize.height - strokeWidth), topLeft = Offset(padding, padding))
                             startAngle += sweepAngle
                         }
                     }
-
                     Spacer(modifier = Modifier.height(16.dp))
 
                     stats.forEach { stat ->
                         val color = categoryColor(stat.category)
                         val pct = if (totalMinutes > 0) (stat.total.toFloat() / totalMinutes * 100) else 0f
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(12.dp)
-                                    .clip(CircleShape)
-                                    .background(color)
-                            )
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(12.dp).clip(CircleShape).background(color))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = stat.category.displayName,
-                                modifier = Modifier.width(80.dp),
-                                color = TextPrimary
-                            )
-                            Text(
-                                text = "${stat.total}분",
-                                modifier = Modifier.weight(1f),
-                                color = TextSecondary
-                            )
-                            Text(
-                                text = String.format("%.1f%%", pct),
-                                color = TextPrimary,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.width(60.dp),
-                                textAlign = TextAlign.End
-                            )
+                            Text(text = stat.category.displayName, modifier = Modifier.width(80.dp), color = TextPrimary)
+                            Text(text = "${stat.total}분", modifier = Modifier.weight(1f), color = TextSecondary)
+                            Text(text = String.format("%.1f%%", pct), color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.width(60.dp), textAlign = TextAlign.End)
                         }
                     }
                 }
@@ -376,58 +202,37 @@ fun StatsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (selectedTab == 1 && weeklyDailyStats.isNotEmpty()) {
+            if (selectedTab == 1 && weeklyDailyCategoryStats.isNotEmpty()) {
                 val dayFormat = remember { SimpleDateFormat("E", Locale.KOREAN) }
-                val maxDaily = weeklyDailyStats.maxOf { it.total }.coerceAtLeast(1)
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = CardBackground),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                val dailyTotals = weeklyDailyStats.associate { it.date to it.total }
+                Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardBackground), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(20.dp)) {
-                        Text(
-                            text = "일별 기록",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text(text = "일별 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(12.dp))
-                        weeklyDailyStats.forEach { daily ->
-                            val pct = daily.total.toFloat() / maxDaily
-                            val dayName = dayFormat.format(Date(daily.date))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                            ) {
-                                Text(
-                                    text = dayName,
-                                    color = TextPrimary,
-                                    modifier = Modifier.width(40.dp)
-                                )
+                        val grouped = weeklyDailyCategoryStats.groupBy { it.date }.mapValues { (_, stats) ->
+                            stats.sortedBy { it.category.ordinal }
+                        }
+                        grouped.forEach { (date, catStats) ->
+                            val dayTotal = dailyTotals[date] ?: catStats.sumOf { it.total }
+                            val dayName = dayFormat.format(Date(date))
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = dayName, color = TextPrimary, modifier = Modifier.width(40.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(20.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Accent.copy(alpha = 0.15f))
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxHeight()
-                                            .fillMaxWidth(pct)
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(Accent)
-                                    )
+                                Box(Modifier.weight(1f).height(24.dp).clip(RoundedCornerShape(4.dp)).background(Accent.copy(alpha = 0.12f))) {
+                                    Row(Modifier.fillMaxSize()) {
+                                        catStats.forEach { stat ->
+                                            Box(
+                                                Modifier.fillMaxHeight().weight(stat.total.toFloat() / dayTotal)
+                                                    .background(categoryColor(stat.category)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (stat.total >= 15) Text("${stat.total}분", color = TextPrimary, fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "${daily.total}분",
-                                    color = TextSecondary,
-                                    modifier = Modifier.width(50.dp),
-                                    textAlign = TextAlign.End
-                                )
+                                Text(text = "${dayTotal}분", color = TextSecondary, modifier = Modifier.width(50.dp), textAlign = TextAlign.End)
                             }
                         }
                     }
@@ -442,7 +247,7 @@ fun StatsScreen(
 private fun MonthCalendar(
     year: Int,
     month: Int,
-    dateSet: Set<Long>,
+    dailyCategoryMap: Map<Long, List<Category>>,
     onDateClick: (Long) -> Unit
 ) {
     val cal = remember { Calendar.getInstance() }
@@ -452,25 +257,11 @@ private fun MonthCalendar(
     val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK) - 1
     val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
 
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBackground),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardBackground), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 dayNames.forEach { name ->
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = TextSecondary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Text(text = name, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -478,10 +269,7 @@ private fun MonthCalendar(
             var day = 1
             for (week in 0 until 6) {
                 if (day > daysInMonth) break
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     for (dow in 0 until 7) {
                         if ((week == 0 && dow < firstDayOfWeek) || day > daysInMonth) {
                             Spacer(modifier = Modifier.weight(1f))
@@ -493,30 +281,18 @@ private fun MonthCalendar(
                             cal.set(Calendar.SECOND, 0)
                             cal.set(Calendar.MILLISECOND, 0)
                             val dayMillis = cal.timeInMillis
-                            val hasData = dayMillis in dateSet
+                            val categories = dailyCategoryMap[dayMillis]
 
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .aspectRatio(1f)
-                                    .clip(CircleShape)
-                                    .clickable { onDateClick(dayMillis) },
+                                modifier = Modifier.weight(1f).aspectRatio(1f).clip(CircleShape).clickable { onDateClick(dayMillis) },
                                 verticalArrangement = Arrangement.Center
                             ) {
-                                Text(
-                                    text = currentDay.toString(),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextPrimary,
-                                    fontWeight = if (hasData) FontWeight.Bold else FontWeight.Normal
-                                )
-                                if (hasData) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(5.dp)
-                                            .clip(CircleShape)
-                                            .background(Accent)
-                                    )
+                                Text(text = currentDay.toString(), style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = if (categories != null) FontWeight.Bold else FontWeight.Normal)
+                                if (categories != null) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        categories.forEach { cat -> Box(Modifier.size(5.dp).clip(CircleShape).background(categoryColor(cat))) }
+                                    }
                                 }
                             }
                             day++

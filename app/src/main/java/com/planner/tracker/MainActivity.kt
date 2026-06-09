@@ -3,8 +3,6 @@ package com.planner.tracker
 import android.net.Uri
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -32,12 +30,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.planner.tracker.ui.screens.GoalsScreen
@@ -55,7 +51,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        createNotificationChannel()
+        createNotificationChannels()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -72,8 +68,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private fun ComponentActivity.createNotificationChannel() {
-    val channel = NotificationChannel(
+private fun ComponentActivity.createNotificationChannels() {
+    val timerChannel = NotificationChannel(
         "timer_alarm",
         "타이머 알림",
         NotificationManager.IMPORTANCE_HIGH
@@ -81,8 +77,16 @@ private fun ComponentActivity.createNotificationChannel() {
         enableVibration(true)
         description = "타이머가 완료되면 알림"
     }
+    val trackingChannel = NotificationChannel(
+        "tracking_channel",
+        "트래킹",
+        NotificationManager.IMPORTANCE_LOW
+    ).apply {
+        description = "실시간 측정 중일 때 상태 표시"
+    }
     val manager = getSystemService(NotificationManager::class.java)
-    manager.createNotificationChannel(channel)
+    manager.createNotificationChannel(timerChannel)
+    manager.createNotificationChannel(trackingChannel)
 }
 
 data class NavItem(val label: String, val icon: ImageVector)
@@ -109,6 +113,11 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
     val goals by viewModel.goals.collectAsState()
     val categoryProgress by viewModel.categoryProgress.collectAsState()
     val monthlyDailyStats by viewModel.monthlyDailyStats.collectAsState()
+    val isTracking by viewModel.isTracking.collectAsState()
+    val elapsedSeconds by viewModel.elapsedSeconds.collectAsState()
+    val alarmTriggered by viewModel.alarmTriggered.collectAsState()
+    val weeklyDailyCategoryStats by viewModel.weeklyDailyCategoryStats.collectAsState()
+    val monthlyDailyCategoryMap by viewModel.monthlyDailyCategoryMap.collectAsState()
     val ctx = LocalContext.current
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -143,9 +152,7 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
 
     Scaffold(
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface
-            ) {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                 navItems.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedTab == index,
@@ -173,23 +180,32 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     onDateSelected = { viewModel.setSelectedDate(it) },
                     onAddEntry = { cat, min, note, s, e -> viewModel.addEntry(cat, min, note, s, e) },
                     onDeleteEntry = { viewModel.deleteEntry(it) },
-                    onUpdateEntry = { viewModel.updateEntry(it) }
+                    onUpdateEntry = { viewModel.updateEntry(it) },
+                    isTracking = isTracking,
+                    elapsedSeconds = elapsedSeconds,
+                    alarmTriggered = alarmTriggered,
+                    onStartTracking = { viewModel.startTracking(it) },
+                    onStopTrackingAndSave = { cat, note -> viewModel.stopTrackingAndSave(cat, note) },
+                    onCancelTracking = { viewModel.cancelTracking() },
+                    onClearAlarm = { viewModel.clearAlarmTriggered() }
                 )
-                    1 -> StatsScreen(
-                        currentYear = yearly,
-                        currentMonth = monthly,
-                        selectedDate = selectedDate,
-                        monthlyStats = stats,
-                        dailyStats = dailyStats,
-                        weeklyStats = weeklyStats,
-                        weeklyDailyStats = weeklyDailyStats,
-                        monthlyDailyStats = monthlyDailyStats,
-                        onMonthChange = { y, m -> viewModel.setCurrentMonth(y, m) },
-                        onDateSelected = { viewModel.setSelectedDate(it) },
-                        onNavigateToGoals = { selectedTab = 2 },
-                        onExport = { exportLauncher.launch("planner_backup_${System.currentTimeMillis()}.json") },
-                        onImport = { importLauncher.launch(arrayOf("application/json")) }
-                    )
+                1 -> StatsScreen(
+                    currentYear = yearly,
+                    currentMonth = monthly,
+                    selectedDate = selectedDate,
+                    monthlyStats = stats,
+                    dailyStats = dailyStats,
+                    weeklyStats = weeklyStats,
+                    weeklyDailyStats = weeklyDailyStats,
+                    weeklyDailyCategoryStats = weeklyDailyCategoryStats,
+                    monthlyDailyStats = monthlyDailyStats,
+                    monthlyDailyCategoryMap = monthlyDailyCategoryMap,
+                    onMonthChange = { y, m -> viewModel.setCurrentMonth(y, m) },
+                    onDateSelected = { viewModel.setSelectedDate(it) },
+                    onNavigateToGoals = { selectedTab = 2 },
+                    onExport = { exportLauncher.launch("planner_backup_${System.currentTimeMillis()}.json") },
+                    onImport = { importLauncher.launch(arrayOf("application/json")) }
+                )
                 2 -> GoalsScreen(
                     currentYear = yearly,
                     currentMonth = monthly,
