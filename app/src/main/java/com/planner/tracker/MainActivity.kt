@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -29,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -56,8 +58,12 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
+            var isDarkMode by rememberSaveable { mutableStateOf(true) }
             PlannerTheme(darkTheme = isDarkMode) {
-                PlannerUI()
+                PlannerUI(
+                    isDarkMode = isDarkMode,
+                    onToggleDarkMode = { isDarkMode = !isDarkMode }
+                )
             }
         }
     }
@@ -85,10 +91,9 @@ private val navItems = listOf(
 )
 
 @Composable
-fun PlannerUI() {
+fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
     val viewModel: PlannerViewModel = viewModel()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    var isDarkMode by rememberSaveable { mutableStateOf(true) }
 
     val selectedDate by viewModel.selectedDate.collectAsState()
     val entries by viewModel.entriesForSelectedDate.collectAsState()
@@ -117,7 +122,7 @@ fun PlannerUI() {
                         alwaysShowLabel = true
                     )
                 }
-                IconButton(onClick = { isDarkMode = !isDarkMode }) {
+                IconButton(onClick = onToggleDarkMode) {
                     Icon(
                         imageVector = Icons.Default.DarkMode,
                         contentDescription = if (isDarkMode) "라이트 모드" else "다크 모드",
