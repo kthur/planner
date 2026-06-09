@@ -20,7 +20,6 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -71,11 +70,8 @@ fun PlannerUI() {
     val weeklyDailyStats by viewModel.weeklyDailyStats.collectAsState()
     val goals by viewModel.goals.collectAsState()
     val categoryProgress by viewModel.categoryProgress.collectAsState()
+    val monthlyDailyStats by viewModel.monthlyDailyStats.collectAsState()
     val ctx = LocalContext.current
-
-    LaunchedEffect(selectedTab) {
-        if (selectedTab == 1) viewModel.refreshTimeRanges()
-    }
 
     Scaffold(
         bottomBar = {
@@ -106,11 +102,14 @@ fun PlannerUI() {
                     1 -> StatsScreen(
                         currentYear = yearly,
                         currentMonth = monthly,
+                        selectedDate = selectedDate,
                         monthlyStats = stats,
                         dailyStats = dailyStats,
                         weeklyStats = weeklyStats,
                         weeklyDailyStats = weeklyDailyStats,
+                        monthlyDailyStats = monthlyDailyStats,
                         onMonthChange = { y, m -> viewModel.setCurrentMonth(y, m) },
+                        onDateSelected = { viewModel.setSelectedDate(it) },
                         onNavigateToGoals = { selectedTab = 2 },
                         onExport = {
                             viewModel.exportDataAsJson { json ->

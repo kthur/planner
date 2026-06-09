@@ -44,6 +44,8 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     val weeklyDailyStats: StateFlow<List<DailyStat>>
 
+    val monthlyDailyStats: StateFlow<List<DailyStat>>
+
     val goals: StateFlow<List<Goal>>
 
     val categoryProgress: StateFlow<Map<Category, Pair<Int, Int>>>
@@ -63,20 +65,26 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             repository.getStatsInRange(start, end)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        dailyStats = repository.getStatsInRange(
-            Repository.getDayRange24h().first,
-            Repository.getDayRange24h().second
-        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        dailyStats = _selectedDate.flatMapLatest { date ->
+            val dayRange = Repository.getDayRange(date)
+            repository.getStatsInRange(dayRange.first, dayRange.second)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        weeklyStats = repository.getStatsInRange(
-            Repository.getWeekRange().first,
-            Repository.getWeekRange().second
-        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        weeklyStats = _selectedDate.flatMapLatest { date ->
+            val weekRange = Repository.getWeekRange(date)
+            repository.getStatsInRange(weekRange.first, weekRange.second)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        weeklyDailyStats = repository.getDailyStatsInRange(
-            Repository.getWeekRange().first,
-            Repository.getWeekRange().second
-        ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        weeklyDailyStats = _selectedDate.flatMapLatest { date ->
+            val weekRange = Repository.getWeekRange(date)
+            repository.getDailyStatsInRange(weekRange.first, weekRange.second)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+        monthlyDailyStats = combine(_currentYear, _currentMonth) { year, month ->
+            Repository.getMonthRange(year, month)
+        }.flatMapLatest { (start, end) ->
+            repository.getDailyStatsInRange(start, end)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         goals = combine(_currentYear, _currentMonth) { year, month ->
             "${year}-${String.format("%02d", month)}"
@@ -132,17 +140,6 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
     fun deleteGoal(id: Long) {
         viewModelScope.launch {
             repository.deleteGoal(id)
-        }
-    }
-
-    fun refreshTimeRanges() {
-        val day24h = Repository.getDayRange24h()
-        viewModelScope.launch {
-            repository.getStatsInRange(day24h.first, day24h.second).collect { }
-        }
-        val weekRange = Repository.getWeekRange()
-        viewModelScope.launch {
-            repository.getStatsInRange(weekRange.first, weekRange.second).collect { }
         }
     }
 

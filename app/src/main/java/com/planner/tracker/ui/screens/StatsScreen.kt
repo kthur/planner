@@ -2,11 +2,13 @@ package com.planner.tracker.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -56,6 +59,7 @@ import com.planner.tracker.ui.theme.TextPrimary
 import com.planner.tracker.ui.theme.TextSecondary
 import com.planner.tracker.ui.theme.categoryColor
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -63,23 +67,31 @@ import java.util.Locale
 fun StatsScreen(
     currentYear: Int,
     currentMonth: Int,
+    selectedDate: Long,
     monthlyStats: List<CategoryStat>,
     dailyStats: List<CategoryStat>,
     weeklyStats: List<CategoryStat>,
     weeklyDailyStats: List<DailyStat>,
+    monthlyDailyStats: List<DailyStat>,
     onMonthChange: (Int, Int) -> Unit,
+    onDateSelected: (Long) -> Unit,
     onNavigateToGoals: () -> Unit,
     onExport: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var year by remember(currentYear) { mutableIntStateOf(currentYear) }
     var month by remember(currentMonth) { mutableIntStateOf(currentMonth) }
+    var selectedDay by remember(selectedDate) { mutableLongStateOf(selectedDate) }
     val tabs = listOf("일간", "주간", "월간")
 
     val stats = when (selectedTab) {
         0 -> dailyStats
         1 -> weeklyStats
         else -> monthlyStats
+    }
+
+    val dateSet = remember(monthlyDailyStats) {
+        monthlyDailyStats.map { it.date }.toSet()
     }
 
     Column(
@@ -114,33 +126,116 @@ fun StatsScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        if (selectedTab == 2) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                IconButton(onClick = {
-                    month--
-                    if (month < 1) { month = 12; year-- }
-                    onMonthChange(year, month)
-                }) {
-                    Icon(Icons.Default.ChevronLeft, "이전 달", tint = TextPrimary)
+        when (selectedTab) {
+            0 -> {
+                val cal = remember { Calendar.getInstance() }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    IconButton(onClick = {
+                        cal.timeInMillis = selectedDay
+                        cal.add(Calendar.DAY_OF_MONTH, -1)
+                        selectedDay = cal.timeInMillis
+                        onDateSelected(selectedDay)
+                    }) {
+                        Icon(Icons.Default.ChevronLeft, "이전 날", tint = TextPrimary)
+                    }
+                    Text(
+                        text = SimpleDateFormat("yyyy년 M월 d일 (E)", Locale.KOREAN).format(Date(selectedDay)),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    IconButton(onClick = {
+                        cal.timeInMillis = selectedDay
+                        cal.add(Calendar.DAY_OF_MONTH, 1)
+                        selectedDay = cal.timeInMillis
+                        onDateSelected(selectedDay)
+                    }) {
+                        Icon(Icons.Default.ChevronRight, "다음 날", tint = TextPrimary)
+                    }
                 }
-                Text(
-                    text = "${year}년 ${month}월",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-                IconButton(onClick = {
-                    month++
-                    if (month > 12) { month = 1; year++ }
-                    onMonthChange(year, month)
-                }) {
-                    Icon(Icons.Default.ChevronRight, "다음 달", tint = TextPrimary)
-                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            1 -> {
+                val cal = remember { Calendar.getInstance() }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    IconButton(onClick = {
+                        cal.timeInMillis = selectedDay
+                        cal.add(Calendar.WEEK_OF_YEAR, -1)
+                        selectedDay = cal.timeInMillis
+                        onDateSelected(selectedDay)
+                    }) {
+                        Icon(Icons.Default.ChevronLeft, "이전 주", tint = TextPrimary)
+                    }
+                    Text(
+                        text = {
+                            cal.timeInMillis = selectedDay
+                            cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                            val start = cal.timeInMillis
+                            cal.add(Calendar.DAY_OF_WEEK, 6)
+                            val end = cal.timeInMillis
+                            val fmt = SimpleDateFormat("M/d", Locale.KOREAN)
+                            "${fmt.format(Date(start))} - ${fmt.format(Date(end))}"
+                        }(),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    IconButton(onClick = {
+                        cal.timeInMillis = selectedDay
+                        cal.add(Calendar.WEEK_OF_YEAR, 1)
+                        selectedDay = cal.timeInMillis
+                        onDateSelected(selectedDay)
+                    }) {
+                        Icon(Icons.Default.ChevronRight, "다음 주", tint = TextPrimary)
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            2 -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    IconButton(onClick = {
+                        month--
+                        if (month < 1) { month = 12; year-- }
+                        onMonthChange(year, month)
+                    }) {
+                        Icon(Icons.Default.ChevronLeft, "이전 달", tint = TextPrimary)
+                    }
+                    Text(
+                        text = "${year}년 ${month}월",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    IconButton(onClick = {
+                        month++
+                        if (month > 12) { month = 1; year++ }
+                        onMonthChange(year, month)
+                    }) {
+                        Icon(Icons.Default.ChevronRight, "다음 달", tint = TextPrimary)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                MonthCalendar(
+                    year = year,
+                    month = month,
+                    dateSet = dateSet,
+                    onDateClick = { millis ->
+                        selectedDay = millis
+                        onDateSelected(millis)
+                    }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
 
         if (stats.isEmpty()) {
@@ -344,6 +439,96 @@ fun StatsScreen(
                                 modifier = Modifier.width(50.dp),
                                 textAlign = TextAlign.End
                             )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MonthCalendar(
+    year: Int,
+    month: Int,
+    dateSet: Set<Long>,
+    onDateClick: (Long) -> Unit
+) {
+    val cal = remember { Calendar.getInstance() }
+    val dayNames = listOf("일", "월", "화", "수", "목", "금", "토")
+
+    cal.set(year, month - 1, 1)
+    val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK) - 1
+    val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                dayNames.forEach { name ->
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+
+            var day = 1
+            for (week in 0 until 6) {
+                if (day > daysInMonth) break
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    for (dow in 0 until 7) {
+                        if ((week == 0 && dow < firstDayOfWeek) || day > daysInMonth) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        } else {
+                            val currentDay = day
+                            cal.set(year, month - 1, currentDay)
+                            cal.set(Calendar.HOUR_OF_DAY, 0)
+                            cal.set(Calendar.MINUTE, 0)
+                            cal.set(Calendar.SECOND, 0)
+                            cal.set(Calendar.MILLISECOND, 0)
+                            val dayMillis = cal.timeInMillis
+                            val hasData = dayMillis in dateSet
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1f)
+                                    .clip(CircleShape)
+                                    .clickable { onDateClick(dayMillis) },
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = currentDay.toString(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextPrimary,
+                                    fontWeight = if (hasData) FontWeight.Bold else FontWeight.Normal
+                                )
+                                if (hasData) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(5.dp)
+                                            .clip(CircleShape)
+                                            .background(Accent)
+                                    )
+                                }
+                            }
+                            day++
                         }
                     }
                 }
