@@ -17,6 +17,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -80,7 +82,6 @@ fun GoalsScreen(
     var targetMinutes by remember { mutableStateOf("") }
     var selectedCategory by remember(categories) { mutableStateOf(categories.firstOrNull()?.name ?: "") }
     var deadlineMillis by remember { mutableLongStateOf(0L) }
-    var showCategoryManageDialog by remember { mutableStateOf(false) }
 
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
 
@@ -129,18 +130,6 @@ fun GoalsScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "${currentYear}년 ${currentMonth}월 목표",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = { showCategoryManageDialog = true }) {
-                    Text("카테고리 관리", color = Accent)
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "카테고리별 진행 상황과 세부 목표를 관리하세요.",
                 color = TextSecondary
@@ -217,8 +206,13 @@ fun GoalsScreen(
                                 } else {
                                     Spacer(modifier = Modifier.weight(1f))
                                 }
-                                OutlinedButton(onClick = { openEditDialog(goal) }) {
-                                    Text("수정", color = color)
+                                Row(horizontalArrangement = Arrangement.End) {
+                                    IconButton(onClick = { openEditDialog(goal) }, modifier = Modifier.size(32.dp)) {
+                                        Icon(Icons.Default.Edit, contentDescription = "수정", tint = Accent, modifier = Modifier.size(20.dp))
+                                    }
+                                    IconButton(onClick = { onDeleteGoal(goal.id) }, modifier = Modifier.size(32.dp)) {
+                                        Icon(Icons.Default.Delete, contentDescription = "삭제", tint = Accent, modifier = Modifier.size(20.dp))
+                                    }
                                 }
                             }
 
@@ -247,11 +241,6 @@ fun GoalsScreen(
                                     color = TextSecondary,
                                     style = MaterialTheme.typography.bodySmall
                                 )
-                            }
-
-                            Spacer(modifier = Modifier.height(4.dp))
-                            TextButton(onClick = { onDeleteGoal(goal.id) }) {
-                                Text("삭제", color = Accent)
                             }
                         }
                     }
@@ -329,13 +318,4 @@ fun GoalsScreen(
         )
     }
 
-    if (showCategoryManageDialog) {
-        CategoryManageDialog(
-            categories = categories,
-            onDismiss = { showCategoryManageDialog = false },
-            onAdd = { name, display, hex -> onAddCategory(name, display, hex) },
-            onUpdate = { name, display, hex -> onUpdateCategory(name, display, hex) },
-            onDelete = { name -> onDeleteCategory(name) }
-        )
-    }
 }

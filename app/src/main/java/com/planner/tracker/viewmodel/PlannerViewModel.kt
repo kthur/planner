@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -333,9 +334,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
     fun exportDataAsJson(onResult: (String) -> Unit) {
         viewModelScope.launch {
             val entries = repository.getEntriesBetweenOnce(0L, Long.MAX_VALUE)
-            val allGoals = repository.getAllGoals().stateIn(
-                viewModelScope, SharingStarted.Eagerly, emptyList()
-            ).value
+            val allGoals = repository.getAllGoals().firstOrNull() ?: emptyList()
             val sb = StringBuilder()
             sb.appendLine("{\"entries\":[")
             entries.forEachIndexed { i, e ->

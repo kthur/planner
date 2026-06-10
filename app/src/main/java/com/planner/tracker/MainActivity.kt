@@ -19,6 +19,9 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +29,8 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,8 +45,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.planner.tracker.ui.screens.GoalsScreen
 import com.planner.tracker.ui.screens.MainScreen
 import com.planner.tracker.ui.screens.StatsScreen
+import com.planner.tracker.ui.components.CategoryManageDialog
+import com.planner.tracker.ui.components.DatePickerDialogScreen
+import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.PlannerTheme
 import com.planner.tracker.viewmodel.PlannerViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private val notificationPermissionLauncher = registerForActivityResult(
@@ -98,6 +109,7 @@ private val navItems = listOf(
     NavItem("목표", Icons.Default.Flag)
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
     val viewModel: PlannerViewModel = viewModel()
@@ -152,7 +164,67 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
         }
     }
 
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var showCategoryManageDialog by rememberSaveable { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        DatePickerDialogScreen(
+            currentDate = selectedDate,
+            onDateSelected = { date -> viewModel.setSelectedDate(date); showDatePicker = false },
+            onDismiss = { showDatePicker = false }
+        )
+    }
+
+    if (showCategoryManageDialog) {
+        CategoryManageDialog(
+            categories = categories,
+            onDismiss = { showCategoryManageDialog = false },
+            onAdd = { name, display, hex -> viewModel.addCategory(name, display, hex) },
+            onUpdate = { name, display, hex -> viewModel.updateCategory(name, display, hex) },
+            onDelete = { name -> viewModel.deleteCategory(name) }
+        )
+    }
+
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    when (selectedTab) {
+                        0 -> {
+                            val dateFormat = remember { SimpleDateFormat("yyyy년 M월 d일 (E)", Locale.KOREAN) }
+                            Text(text = dateFormat.format(Date(selectedDate)), style = MaterialTheme.typography.titleLarge)
+                        }
+                        1 -> Text("통계", style = MaterialTheme.typography.titleLarge)
+                        2 -> Text("목표", style = MaterialTheme.typography.titleLarge)
+                    }
+                },
+                actions = {
+                    when (selectedTab) {
+                        0 -> {
+                            IconButton(onClick = { showDatePicker = true }) {
+                                Icon(Icons.Default.CalendarMonth, contentDescription = "날짜 선택", tint = Accent)
+                            }
+                        }
+                        1 -> {
+                            TextButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) { Text("복원", color = Accent) }
+                            IconButton(onClick = { exportLauncher.launch("planner_backup_${System.currentTimeMillis()}.json") }) { Icon(Icons.Default.Share, contentDescription = "내보내기", tint = Accent) }
+                        }
+                        2 -> {
+                            TextButton(onClick = { showCategoryManageDialog = true }) {
+                                Text("카테고리 관리", color = Accent)
+                            }
+                        }
+                    }
+                    IconButton(onClick = onToggleDarkMode) {
+                        Icon(
+                            imageVector = Icons.Default.DarkMode,
+                            contentDescription = if (isDarkMode) "라이트 모드" else "다크 모드",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            )
+        },
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                 navItems.forEachIndexed { index, item ->
@@ -162,13 +234,6 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                         icon = { Icon(item.icon, contentDescription = item.label) },
                         label = { Text(item.label) },
                         alwaysShowLabel = true
-                    )
-                }
-                IconButton(onClick = onToggleDarkMode) {
-                    Icon(
-                        imageVector = Icons.Default.DarkMode,
-                        contentDescription = if (isDarkMode) "라이트 모드" else "다크 모드",
-                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }

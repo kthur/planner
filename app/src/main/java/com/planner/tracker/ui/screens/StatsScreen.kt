@@ -101,17 +101,9 @@ fun StatsScreen(
         else -> monthlyStats
     }
 
-    Column(
+        Column(
         modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("통계", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            TextButton(onClick = onImport) { Text("복원", color = Accent) }
-            IconButton(onClick = onExport) { Icon(Icons.Default.Share, contentDescription = "내보내기", tint = Accent) }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
         TabRow(selectedTabIndex = selectedTab) {
             tabs.forEachIndexed { index, title ->
                 Tab(selected = selectedTab == index, onClick = { selectedTab = index }, text = { Text(title) })
