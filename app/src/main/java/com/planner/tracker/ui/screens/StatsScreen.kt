@@ -2,6 +2,7 @@ package com.planner.tracker.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -119,6 +120,12 @@ fun StatsScreen(
                     IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.DAY_OF_MONTH, 1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronRight, "다음 날", tint = MaterialTheme.colorScheme.onBackground) }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
+
+                // 12시간 시계 항상 표시
+                if (dailyEntries.isNotEmpty()) {
+                    DailyClockView(entries = dailyEntries, categoryMap = categoryMap)
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
             }
             1 -> {
                 val cal = remember { Calendar.getInstance() }
@@ -202,43 +209,32 @@ fun StatsScreen(
             }
 
             if (selectedTab == 0 && dailyEntries.isNotEmpty()) {
-                var showClock by remember { mutableStateOf(false) }
                 Spacer(modifier = Modifier.height(16.dp))
                 Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                            Text(text = "상세 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            TextButton(onClick = { showClock = !showClock }) {
-                                Text(if (showClock) "리스트 보기" else "시계 보기", color = Accent)
-                            }
-                        }
+                        Text(text = "상세 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
-
-                        if (showClock) {
-                            DailyClockView(entries = dailyEntries, categoryMap = categoryMap)
-                        } else {
-                            val tf = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
-                            dailyEntries.forEach { entry ->
-                                val catInfo = categoryMap[entry.category]
-                                val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
-                                val displayName = catInfo?.displayName ?: entry.category
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(Modifier.size(10.dp).clip(CircleShape).background(color))
-                                    Spacer(Modifier.width(8.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(text = displayName, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
-                                        if (entry.startTime > 0 && entry.endTime > 0) {
-                                            Text(text = "${tf.format(Date(entry.startTime))} - ${tf.format(Date(entry.endTime))}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                                        }
+                        val tf = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+                        dailyEntries.forEach { entry ->
+                            val catInfo = categoryMap[entry.category]
+                            val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
+                            val displayName = catInfo?.displayName ?: entry.category
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(Modifier.size(10.dp).clip(CircleShape).background(color))
+                                Spacer(Modifier.width(8.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = displayName, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
+                                    if (entry.startTime > 0 && entry.endTime > 0) {
+                                        Text(text = "${tf.format(Date(entry.startTime))} - ${tf.format(Date(entry.endTime))}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                                     }
-                                    Text(text = "${entry.minutes}분", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-                                    if (entry.note.isNotBlank()) {
-                                        Spacer(Modifier.width(4.dp))
-                                        Text(text = entry.note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                                    }
+                                }
+                                Text(text = "${entry.minutes}분", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                                if (entry.note.isNotBlank()) {
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(text = entry.note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, maxLines = 1)
                                 }
                             }
                         }
@@ -426,18 +422,38 @@ private fun MonthCalendar(
                             val dayMillis = cal.timeInMillis
                             val categories = dailyCategoryMap[dayMillis]
 
+                            val primaryCatColor = if (categories != null && categories.isNotEmpty()) {
+                                val firstCatInfo = categoryMap[categories.first()]
+                                if (firstCatInfo != null) categoryColorFromHex(firstCatInfo.colorHex) else Accent
+                            } else null
+
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.weight(1f).aspectRatio(1f).clip(CircleShape).clickable { onDateClick(dayMillis) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1f)
+                                    .then(
+                                        if (primaryCatColor != null) Modifier
+                                            .background(primaryCatColor.copy(alpha = 0.15f), CircleShape)
+                                            .border(1.5.dp, primaryCatColor.copy(alpha = 0.4f), CircleShape)
+                                        else Modifier
+                                    )
+                                    .clip(CircleShape)
+                                    .clickable { onDateClick(dayMillis) },
                                 verticalArrangement = Arrangement.Center
                             ) {
-                                Text(text = currentDay.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground, fontWeight = if (categories != null) FontWeight.Bold else FontWeight.Normal)
-                                if (categories != null) {
+                                Text(
+                                    text = currentDay.toString(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (primaryCatColor != null) primaryCatColor else MaterialTheme.colorScheme.onBackground,
+                                    fontWeight = if (categories != null) FontWeight.Bold else FontWeight.Normal
+                                )
+                                if (categories != null && categories.size > 1) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        categories.forEach { catName ->
+                                        categories.take(3).forEach { catName ->
                                             val catInfo = categoryMap[catName]
                                             val dotColor = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
-                                            Box(Modifier.size(5.dp).clip(CircleShape).background(dotColor))
+                                            Box(Modifier.size(4.dp).clip(CircleShape).background(dotColor))
                                         }
                                     }
                                 }
