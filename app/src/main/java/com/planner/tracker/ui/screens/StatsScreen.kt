@@ -308,23 +308,8 @@ private fun DailyClockView(
                 val cx = size.width / 2f
                 val cy = size.height / 2f
                 val radius = minOf(cx, cy) - 16f
-                val innerRadius = radius * 0.78f
 
-                drawCircle(color = Accent.copy(alpha = 0.08f), radius = radius, center = Offset(cx, cy))
-
-                for (i in 0 until 12) {
-                    val angle = Math.toRadians((i * 30 - 90).toDouble())
-                    val outerX = cx + (radius * cos(angle)).toFloat()
-                    val outerY = cy + (radius * sin(angle)).toFloat()
-                    val innerX = cx + (radius * 0.88f * cos(angle)).toFloat()
-                    val innerY = cy + (radius * 0.88f * sin(angle)).toFloat()
-                    drawLine(
-                        color = Accent.copy(alpha = 0.4f),
-                        start = Offset(innerX, innerY),
-                        end = Offset(outerX, outerY),
-                        strokeWidth = if (i % 3 == 0) 3f else 1.5f
-                    )
-                }
+                drawCircle(color = Accent.copy(alpha = 0.06f), radius = radius, center = Offset(cx, cy))
 
                 entriesWithTime.forEach { entry ->
                     cal.timeInMillis = entry.startTime
@@ -342,17 +327,31 @@ private fun DailyClockView(
                     val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
 
                     drawArc(
-                        color = color.copy(alpha = 0.7f),
+                        color = color.copy(alpha = 0.55f),
                         startAngle = startAngle,
                         sweepAngle = sweep,
-                        useCenter = false,
-                        style = Stroke(width = radius * 0.22f, cap = StrokeCap.Round),
-                        topLeft = Offset(cx - innerRadius, cy - innerRadius),
-                        size = Size(innerRadius * 2, innerRadius * 2)
+                        useCenter = true,
+                        topLeft = Offset(cx - radius, cy - radius),
+                        size = Size(radius * 2, radius * 2)
                     )
                 }
 
-                drawCircle(color = Accent.copy(alpha = 0.15f), radius = 6f, center = Offset(cx, cy))
+                // 시간 눈금 (파이 위에 표시)
+                for (i in 0 until 12) {
+                    val angle = Math.toRadians((i * 30 - 90).toDouble())
+                    val outerX = cx + (radius * cos(angle)).toFloat()
+                    val outerY = cy + (radius * sin(angle)).toFloat()
+                    val innerX = cx + (radius * 0.85f * cos(angle)).toFloat()
+                    val innerY = cy + (radius * 0.85f * sin(angle)).toFloat()
+                    drawLine(
+                        color = Accent.copy(alpha = 0.6f),
+                        start = Offset(innerX, innerY),
+                        end = Offset(outerX, outerY),
+                        strokeWidth = if (i % 3 == 0) 3f else 1.5f
+                    )
+                }
+
+                drawCircle(color = Accent.copy(alpha = 0.2f), radius = 8f, center = Offset(cx, cy))
             }
 
             Spacer(modifier = Modifier.height(12.dp))
