@@ -86,7 +86,7 @@ fun CategoryManageDialog(
         title = { Text("카테고리 관리") },
         text = {
             Column {
-                categories.filter { it.isDefault || true }.forEach { cat ->
+                categories.forEach { cat ->
                     val isDefault = cat.isDefault
                     val color = categoryColorFromHex(cat.colorHex)
                     Card(

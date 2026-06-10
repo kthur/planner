@@ -210,7 +210,7 @@ fun GoalsScreen(
                                 if (goal.description.isNotBlank()) {
                                     Text(
                                         text = "- ${goal.description}",
-                                        color = if (goal.isCompleted) TextSecondary else TextSecondary,
+                                        color = if (goal.isCompleted) TextSecondary else TextPrimary,
                                         style = MaterialTheme.typography.bodyMedium,
                                         modifier = Modifier.weight(1f)
                                     )
