@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -93,9 +93,11 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             repository.getEntriesByDate(dayRange.first)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        monthlyStats = combine(_currentYear, _currentMonth) { year, month ->
-            Repository.getMonthRange(year, month)
-        }.flatMapLatest { (start, end) ->
+        val monthRange = combine(_currentYear, _currentMonth) { y, m ->
+            Repository.getMonthRange(y, m)
+        }
+
+        monthlyStats = monthRange.flatMapLatest { (start, end) ->
             repository.getStatsInRange(start, end)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -114,9 +116,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             repository.getDailyStatsInRange(weekRange.first, weekRange.second)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        monthlyDailyStats = combine(_currentYear, _currentMonth) { year, month ->
-            Repository.getMonthRange(year, month)
-        }.flatMapLatest { (start, end) ->
+        monthlyDailyStats = monthRange.flatMapLatest { (start, end) ->
             repository.getDailyStatsInRange(start, end)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -133,28 +133,20 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-        weeklyDailyCategoryStats = _selectedDate.flatMapLatest { date ->
-            flow {
-                val (start, end) = Repository.getWeekRange(date)
-                val entries = repository.getEntriesBetweenOnce(start, end)
-                val result = entries.groupBy { it.date }.flatMap { (day, dayEntries) ->
-                    dayEntries.groupBy { it.category }.map { (cat, catEntries) ->
-                        DailyCategoryStat(day, cat, catEntries.sumOf { it.minutes })
-                    }
+        weeklyDailyCategoryStats = _selectedDate.mapLatest { date ->
+            val (start, end) = Repository.getWeekRange(date)
+            val entries = repository.getEntriesBetweenOnce(start, end)
+            entries.groupBy { it.date }.flatMap { (day, dayEntries) ->
+                dayEntries.groupBy { it.category }.map { (cat, catEntries) ->
+                    DailyCategoryStat(day, cat, catEntries.sumOf { it.minutes })
                 }
-                emit(result)
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        monthlyDailyCategoryMap = combine(_currentYear, _currentMonth) { y, m ->
-            Repository.getMonthRange(y, m)
-        }.flatMapLatest { (start, end) ->
-            flow {
-                val entries = repository.getEntriesBetweenOnce(start, end)
-                val result = entries.groupBy { it.date }.mapValues { (_, dayEntries) ->
-                    dayEntries.map { it.category }.distinct()
-                }
-                emit(result)
+        monthlyDailyCategoryMap = monthRange.mapLatest { (start, end) ->
+            val entries = repository.getEntriesBetweenOnce(start, end)
+            entries.groupBy { it.date }.mapValues { (_, dayEntries) ->
+                dayEntries.map { it.category }.distinct()
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
     }
@@ -210,19 +202,20 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     fun startTracking(timerMinutes: String) {
         val now = System.currentTimeMillis()
+        val timerSec = timerMinutes.toIntOrNull() ?: 0
         _trackingStartedAt = now
         _elapsedSeconds.value = 0
         _isTracking.value = true
         _alarmTriggered.value = false
-        timerTargetSec = timerMinutes.toIntOrNull()?.times(60) ?: 0
-        val hasTimer = timerMinutes.toIntOrNull()?.let { it > 0 } == true
-        updateTrackingNotification(0, hasTimer, timerMinutes.toIntOrNull() ?: 0)
+        timerTargetSec = timerSec * 60
+        val hasTimer = timerSec > 0
+        updateTrackingNotification(0, hasTimer, timerSec)
         trackingJob?.cancel()
         trackingJob = viewModelScope.launch {
             while (true) {
                 val secs = (System.currentTimeMillis() - _trackingStartedAt) / 1000
                 _elapsedSeconds.value = secs
-                updateTrackingNotification(secs, hasTimer, timerMinutes.toIntOrNull() ?: 0)
+                updateTrackingNotification(secs, hasTimer, timerSec)
                 if (timerTargetSec > 0 && secs >= timerTargetSec && !_alarmTriggered.value) {
                     _alarmTriggered.value = true
                     sendTimerNotification()
