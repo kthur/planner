@@ -31,6 +31,7 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+        freeCompilerArgs = freeCompilerArgs + listOf("-Xskip-metadata-version-check")
     }
 
     buildFeatures {
@@ -46,7 +47,7 @@ dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.01.00")
     implementation(composeBom)
 	
-	implementation(platform("com.google.firebase:firebase-bom:34.14.0"))
+	implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
 	implementation("com.google.firebase:firebase-analytics")
 
     implementation("androidx.core:core-ktx:1.12.0")
