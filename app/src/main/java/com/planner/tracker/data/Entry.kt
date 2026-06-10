@@ -12,7 +12,8 @@ data class Entry(
     val minutes: Int,
     val note: String = "",
     val startTime: Long = 0,
-    val endTime: Long = 0
+    val endTime: Long = 0,
+    val entryType: String = "DURATION"
 )
 
 data class DailyCategoryStat(

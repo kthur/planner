@@ -186,7 +186,7 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
         CategoryManageDialog(
             categories = categories,
             onDismiss = { showCategoryManageDialog = false },
-            onAdd = { name, display, hex -> viewModel.addCategory(name, display, hex) },
+            onAdd = { display, hex -> viewModel.addCategory(java.util.UUID.randomUUID().toString(), display, hex) },
             onUpdate = { name, display, hex -> viewModel.updateCategory(name, display, hex) },
             onDelete = { name -> viewModel.deleteCategory(name) }
         )
@@ -269,7 +269,7 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     categories = categories,
                     selectedDate = selectedDate,
                     entries = entries,
-                    onAddEntry = { cat, min, note, s, e -> viewModel.addEntry(cat, min, note, s, e) },
+                    onAddEntry = { cat, min, note, s, e, type -> viewModel.addEntry(cat, min, note, s, e, type) },
                     onDeleteEntry = { viewModel.deleteEntry(it) },
                     onUpdateEntry = { viewModel.updateEntry(it) },
                     isTracking = isTracking,

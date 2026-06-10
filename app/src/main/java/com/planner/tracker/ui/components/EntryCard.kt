@@ -77,7 +77,14 @@ fun EntryCard(
                     color = color,
                     fontWeight = FontWeight.SemiBold
                 )
-                if (entry.startTime > 0 && entry.endTime > 0) {
+                if (entry.entryType == "EVENT") {
+                    val eventTimeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+                    Text(
+                        text = "📍 ${eventTimeFormat.format(Date(entry.startTime))}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else if (entry.startTime > 0 && entry.endTime > 0) {
                     Text(
                         text = "${timeFormat.format(Date(entry.startTime))} - ${timeFormat.format(Date(entry.endTime))}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -93,11 +100,19 @@ fun EntryCard(
                 }
             }
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "${entry.minutes}분",
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.Bold
-            )
+            if (entry.entryType == "EVENT") {
+                Text(
+                    text = "체크",
+                    color = Accent,
+                    fontWeight = FontWeight.Bold
+                )
+            } else {
+                Text(
+                    text = "${entry.minutes}분",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold
+                )
+            }
             Spacer(modifier = Modifier.width(4.dp))
             IconButton(onClick = onEdit) {
                 Icon(

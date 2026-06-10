@@ -1,6 +1,7 @@
 package com.planner.tracker.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,17 +52,28 @@ private val presetColors = listOf(
     "FFFF5722", "FF607D8B", "FF795548", "FF009688", "FFE91E63", "FF3F51B5"
 )
 
+data class CategoryPreset(val name: String, val colorHex: String)
+
+private val presets = listOf(
+    CategoryPreset("Health", "FF4CAF50"),     // Green
+    CategoryPreset("Mind", "FF2196F3"),       // Blue
+    CategoryPreset("Family", "FFFF9800"),     // Orange
+    CategoryPreset("Language", "FF9C27B0"),   // Purple
+    CategoryPreset("Finance", "FFF44336"),    // Red
+    CategoryPreset("Technology", "FF00BCD4"), // Cyan
+    CategoryPreset("Notes", "FF795548")       // Brown
+)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CategoryManageDialog(
     categories: List<CategoryEntity>,
     onDismiss: () -> Unit,
-    onAdd: (String, String, String) -> Unit,
+    onAdd: (String, String) -> Unit,
     onUpdate: (String, String, String) -> Unit,
     onDelete: (String) -> Unit
 ) {
     var editTarget by remember { mutableStateOf<CategoryEntity?>(null) }
-    var editName by remember { mutableStateOf("") }
     var editDisplay by remember { mutableStateOf("") }
     var editColor by remember { mutableStateOf(presetColors.first()) }
     var isAdding by remember { mutableStateOf(false) }
@@ -69,7 +81,6 @@ fun CategoryManageDialog(
     fun startAdd() {
         isAdding = true
         editTarget = null
-        editName = ""
         editDisplay = ""
         editColor = presetColors.first()
     }
@@ -77,7 +88,6 @@ fun CategoryManageDialog(
     fun startEdit(cat: CategoryEntity) {
         isAdding = false
         editTarget = cat
-        editName = cat.name
         editDisplay = cat.displayName
         editColor = cat.colorHex
     }
@@ -117,15 +127,47 @@ fun CategoryManageDialog(
                 Spacer(Modifier.height(12.dp))
 
                 if (editTarget != null || isAdding) {
-                    OutlinedTextField(
-                        value = editName,
-                        onValueChange = { editName = it },
-                        label = { Text("영문 이름 (예: NEW_CAT)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        enabled = isAdding
-                    )
-                    Spacer(Modifier.height(8.dp))
+                    if (isAdding) {
+                        Text("프리셋 선택", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(4.dp))
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            presets.forEach { preset ->
+                                val isSelected = editDisplay == preset.name && editColor == preset.colorHex
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(
+                                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                            else MaterialTheme.colorScheme.surfaceVariant
+                                        )
+                                        .clickable {
+                                            editDisplay = preset.name
+                                            editColor = preset.colorHex
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(categoryColorFromHex(preset.colorHex))
+                                    )
+                                    Spacer(Modifier.size(6.dp))
+                                    Text(
+                                        text = preset.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
                     OutlinedTextField(
                         value = editDisplay,
                         onValueChange = { editDisplay = it },
@@ -164,8 +206,8 @@ fun CategoryManageDialog(
                         }
                         TextButton(
                             onClick = {
-                                if (editName.isNotBlank() && editDisplay.isNotBlank()) {
-                                    if (isAdding) onAdd(editName.uppercase(), editDisplay, editColor)
+                                if (editDisplay.isNotBlank()) {
+                                    if (isAdding) onAdd(editDisplay, editColor)
                                     else editTarget?.let { onUpdate(it.name, editDisplay, editColor) }
                                     editTarget = null; isAdding = false
                                 }

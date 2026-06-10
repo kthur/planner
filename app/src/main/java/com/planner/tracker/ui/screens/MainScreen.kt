@@ -61,7 +61,7 @@ fun MainScreen(
     categories: List<CategoryEntity>,
     selectedDate: Long,
     entries: List<Entry>,
-    onAddEntry: (String, Int, String, Long, Long) -> Unit,
+    onAddEntry: (String, Int, String, Long, Long, String) -> Unit,
     onDeleteEntry: (Entry) -> Unit,
     onUpdateEntry: (Entry) -> Unit,
     isTracking: Boolean = false,
@@ -80,7 +80,9 @@ fun MainScreen(
     var endTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var durationH by remember { mutableStateOf("") }
     var durationM by remember { mutableStateOf("") }
-    var directDurationMode by remember { mutableStateOf(true) }
+    var directInputSubMode by remember { mutableStateOf(0) } // 0: 소요시간 입력, 1: 기간 설정, 2: 이벤트 기록
+    var eventTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var showEventTimePicker by remember { mutableStateOf(false) }
     var editingEntry by remember { mutableStateOf<Entry?>(null) }
     var editStartTime by remember(editingEntry) { mutableLongStateOf(editingEntry?.startTime ?: 0L) }
     var editEndTime by remember(editingEntry) { mutableLongStateOf(editingEntry?.endTime ?: 0L) }
@@ -104,6 +106,7 @@ fun MainScreen(
         cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
         endTime = cal.timeInMillis
+        eventTime = cal.timeInMillis
         cal.add(Calendar.HOUR, -1)
         startTime = cal.timeInMillis
     }
@@ -113,7 +116,7 @@ fun MainScreen(
     }
 
     fun calcMinutesFromTimestamps(): Int {
-        if (inputMode && directDurationMode) {
+        if (inputMode && directInputSubMode == 0) {
             val dh = durationH.toIntOrNull() ?: 0
             val dm = durationM.toIntOrNull() ?: 0
             return dh * 60 + dm
@@ -160,6 +163,24 @@ fun MainScreen(
         )
     }
 
+    if (showEventTimePicker) {
+        val now = Calendar.getInstance().apply { timeInMillis = eventTime }
+        TimePickerDialogScreen(
+            currentHour = now.get(Calendar.HOUR_OF_DAY),
+            currentMinute = now.get(Calendar.MINUTE),
+            onTimeSelected = { h, m ->
+                cal.timeInMillis = eventTime
+                cal.set(Calendar.HOUR_OF_DAY, h)
+                cal.set(Calendar.MINUTE, m)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                eventTime = cal.timeInMillis
+                showEventTimePicker = false
+            },
+            onDismiss = { showEventTimePicker = false }
+        )
+    }
+
     if (showEditStartTimePicker) {
         val now = Calendar.getInstance().apply { timeInMillis = editStartTime }
         TimePickerDialogScreen(
@@ -199,6 +220,7 @@ fun MainScreen(
     editingEntry?.let { entry ->
         val editCat = remember(entry) { mutableStateOf(entry.category) }
         val editNote = remember(entry) { mutableStateOf(entry.note) }
+        val isEvent = entry.entryType == "EVENT"
 
         AlertDialog(
             onDismissRequest = { editingEntry = null },
@@ -209,30 +231,49 @@ fun MainScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedButton(
-                            onClick = { showEditStartTimePicker = true },
-                            modifier = Modifier.weight(1f)
+                    if (isEvent) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("시작 시간", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(timeFormat.format(Date(editStartTime)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Accent)
+                            OutlinedButton(
+                                onClick = { showEditStartTimePicker = true },
+                                modifier = Modifier.width(180.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("발생 시간", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(timeFormat.format(Date(editStartTime)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Accent)
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        OutlinedButton(
-                            onClick = { showEditEndTimePicker = true },
-                            modifier = Modifier.weight(1f)
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("종료 시간", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(timeFormat.format(Date(editEndTime)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Accent)
+                            OutlinedButton(
+                                onClick = { showEditStartTimePicker = true },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("시작 시간", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(timeFormat.format(Date(editStartTime)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Accent)
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            OutlinedButton(
+                                onClick = { showEditEndTimePicker = true },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("종료 시간", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(timeFormat.format(Date(editEndTime)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Accent)
+                                }
                             }
                         }
                     }
@@ -242,8 +283,12 @@ fun MainScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    val mins = if (editEndTime > editStartTime) ((editEndTime - editStartTime) / 60000).toInt() else 0
-                    onUpdateEntry(entry.copy(category = editCat.value, note = editNote.value, minutes = mins, startTime = editStartTime, endTime = editEndTime))
+                    if (isEvent) {
+                        onUpdateEntry(entry.copy(category = editCat.value, note = editNote.value, minutes = 0, startTime = editStartTime, endTime = 0L))
+                    } else {
+                        val mins = if (editEndTime > editStartTime) ((editEndTime - editStartTime) / 60000).toInt() else 0
+                        onUpdateEntry(entry.copy(category = editCat.value, note = editNote.value, minutes = mins, startTime = editStartTime, endTime = editEndTime))
+                    }
                     editingEntry = null
                 }) { Text("저장") }
             },
@@ -341,16 +386,24 @@ fun MainScreen(
 
                     if (inputMode) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { directDurationMode = false }, colors = ButtonDefaults.textButtonColors(contentColor = if (!directDurationMode) Accent else MaterialTheme.colorScheme.onSurfaceVariant)) {
-                                Text("기간 설정", fontWeight = if (!directDurationMode) FontWeight.Bold else FontWeight.Normal)
+                            TextButton(onClick = { directInputSubMode = 0 }, colors = ButtonDefaults.textButtonColors(contentColor = if (directInputSubMode == 0) Accent else MaterialTheme.colorScheme.onSurfaceVariant)) {
+                                Text("소요 시간 입력", fontWeight = if (directInputSubMode == 0) FontWeight.Bold else FontWeight.Normal)
                             }
-                            TextButton(onClick = { directDurationMode = true }, colors = ButtonDefaults.textButtonColors(contentColor = if (directDurationMode) Accent else MaterialTheme.colorScheme.onSurfaceVariant)) {
-                                Text("소요 시간 입력", fontWeight = if (directDurationMode) FontWeight.Bold else FontWeight.Normal)
+                            TextButton(onClick = { directInputSubMode = 1 }, colors = ButtonDefaults.textButtonColors(contentColor = if (directInputSubMode == 1) Accent else MaterialTheme.colorScheme.onSurfaceVariant)) {
+                                Text("기간 설정", fontWeight = if (directInputSubMode == 1) FontWeight.Bold else FontWeight.Normal)
+                            }
+                            TextButton(onClick = { directInputSubMode = 2 }, colors = ButtonDefaults.textButtonColors(contentColor = if (directInputSubMode == 2) Accent else MaterialTheme.colorScheme.onSurfaceVariant)) {
+                                Text("이벤트 기록", fontWeight = if (directInputSubMode == 2) FontWeight.Bold else FontWeight.Normal)
                             }
                         }
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        if (!directDurationMode) {
+                        if (directInputSubMode == 0) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(value = durationH, onValueChange = { durationH = it }, label = { Text("시간") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true)
+                                OutlinedTextField(value = durationM, onValueChange = { durationM = it }, label = { Text("분") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true)
+                            }
+                        } else if (directInputSubMode == 1) {
                             val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -380,26 +433,46 @@ fun MainScreen(
                                 }
                             }
                         } else {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(value = durationH, onValueChange = { durationH = it }, label = { Text("시간") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true)
-                                OutlinedTextField(value = durationM, onValueChange = { durationM = it }, label = { Text("분") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true)
+                            val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedButton(
+                                    onClick = { showEventTimePicker = true },
+                                    modifier = Modifier.width(180.dp)
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("발생 시간", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(timeFormat.format(Date(eventTime)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Accent)
+                                    }
+                                }
                             }
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        val minutes = calcMinutesFromTimestamps()
-                        Text(text = if (minutes > 0) "소요 시간: ${minutes / 60}시간 ${minutes % 60}분" else "시간을 입력하세요", color = if (minutes > 0) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = if (minutes > 0) FontWeight.Bold else FontWeight.Normal, style = MaterialTheme.typography.bodyMedium)
-                        Spacer(modifier = Modifier.height(8.dp))
+                        if (directInputSubMode != 2) {
+                            val minutes = calcMinutesFromTimestamps()
+                            Text(text = if (minutes > 0) "소요 시간: ${minutes / 60}시간 ${minutes % 60}분" else "시간을 입력하세요", color = if (minutes > 0) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = if (minutes > 0) FontWeight.Bold else FontWeight.Normal, style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
                         OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("메모 (선택사항)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(onClick = {
-                            val mins = calcMinutesFromTimestamps()
-                            if (mins > 0) {
-                                if (directDurationMode) {
-                                    onAddEntry(selectedCategory, mins, note, 0L, 0L)
-                                } else {
-                                    onAddEntry(selectedCategory, mins, note, startTime, endTime)
+                            if (directInputSubMode == 2) {
+                                onAddEntry(selectedCategory, 0, note, eventTime, 0L, "EVENT")
+                                note = ""
+                            } else {
+                                val mins = calcMinutesFromTimestamps()
+                                if (mins > 0) {
+                                    if (directInputSubMode == 0) {
+                                        onAddEntry(selectedCategory, mins, note, 0L, 0L, "DURATION")
+                                    } else {
+                                        onAddEntry(selectedCategory, mins, note, startTime, endTime, "DURATION")
+                                    }
+                                    durationH = ""; durationM = ""; note = ""
                                 }
-                                durationH = ""; durationM = ""; note = ""
                             }
                         }, colors = ButtonDefaults.buttonColors(containerColor = Accent), modifier = Modifier.fillMaxWidth()) {
                             Text("저장")
