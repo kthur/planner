@@ -37,11 +37,9 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      - name: Create Service Account Key File
+      - name: Decode Service Account Key
         if: github.event_name != 'pull_request'
-        run: echo "$CREDENTIAL_CONTENT" > firebase-key.json
-        env:
-          CREDENTIAL_CONTENT: ${{ secrets.CREDENTIAL_FILE_CONTENT }}
+        run: echo "${{ secrets.CREDENTIAL_FILE_CONTENT }}" | base64 -d > firebase-key.json
 
       - name: Upload to Firebase App Distribution
         if: github.event_name != 'pull_request'
