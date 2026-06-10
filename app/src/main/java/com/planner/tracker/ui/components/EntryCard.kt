@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.planner.tracker.data.CategoryEntity
 import com.planner.tracker.data.Entry
 import com.planner.tracker.ui.theme.Accent
+import com.planner.tracker.ui.theme.CardBackground
 import com.planner.tracker.ui.theme.TextPrimary
 import com.planner.tracker.ui.theme.TextSecondary
 import com.planner.tracker.ui.theme.categoryColorFromHex
@@ -55,7 +55,7 @@ fun EntryCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = com.planner.tracker.ui.theme.CardBackground
+            containerColor = CardBackground
         )
     ) {
         Row(

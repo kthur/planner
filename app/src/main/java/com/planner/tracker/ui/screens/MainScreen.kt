@@ -1,7 +1,6 @@
 package com.planner.tracker.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -24,8 +22,6 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DismissDirection
 import androidx.compose.material3.DismissValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,7 +57,6 @@ import com.planner.tracker.ui.components.DatePickerDialogScreen
 import com.planner.tracker.ui.components.EntryCard
 import com.planner.tracker.ui.components.TimePickerDialogScreen
 import com.planner.tracker.ui.theme.Accent
-import com.planner.tracker.ui.theme.CardBackground
 import com.planner.tracker.ui.theme.TextPrimary
 import com.planner.tracker.ui.theme.TextSecondary
 import java.text.SimpleDateFormat

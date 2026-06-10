@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.planner.tracker.data.CategoryEntity
 import com.planner.tracker.ui.theme.categoryColorFromHex
@@ -41,7 +42,7 @@ fun CategorySelector(
             ) {
                 Text(
                     text = category.displayName,
-                    color = if (isSelected) androidx.compose.ui.graphics.Color.White else color
+                    color = if (isSelected) Color.White else color
                 )
             }
         }

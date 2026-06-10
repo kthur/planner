@@ -227,6 +227,7 @@ fun StatsScreen(
                         if (showClock) {
                             DailyClockView(entries = dailyEntries, categoryMap = categoryMap)
                         } else {
+                            val tf = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
                             dailyEntries.forEach { entry ->
                                 val catInfo = categoryMap[entry.category]
                                 val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
@@ -240,7 +241,6 @@ fun StatsScreen(
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(text = displayName, color = TextPrimary, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
                                         if (entry.startTime > 0 && entry.endTime > 0) {
-                                            val tf = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
                                             Text(text = "${tf.format(Date(entry.startTime))} - ${tf.format(Date(entry.endTime))}", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
                                         }
                                     }
