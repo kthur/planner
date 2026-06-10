@@ -269,7 +269,6 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     categories = categories,
                     selectedDate = selectedDate,
                     entries = entries,
-                    onDateSelected = { viewModel.setSelectedDate(it) },
                     onAddEntry = { cat, min, note, s, e -> viewModel.addEntry(cat, min, note, s, e) },
                     onDeleteEntry = { viewModel.deleteEntry(it) },
                     onUpdateEntry = { viewModel.updateEntry(it) },
@@ -296,9 +295,7 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     monthlyDailyCategoryMap = monthlyDailyCategoryMap,
                     onMonthChange = { y, m -> viewModel.setCurrentMonth(y, m) },
                     onDateSelected = { viewModel.setSelectedDate(it) },
-                    onNavigateToGoals = { selectedTab = 2 },
-                    onExport = { exportLauncher.launch("planner_backup_${System.currentTimeMillis()}.json") },
-                    onImport = { importLauncher.launch(arrayOf("application/json")) }
+                    onNavigateToGoals = { selectedTab = 2 }
                 )
                 2 -> GoalsScreen(
                     categories = categories,
@@ -307,11 +304,7 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     goals = goals,
                     categoryProgress = categoryProgress,
                     onUpsertGoal = { viewModel.upsertGoal(it) },
-                    onDeleteGoal = { viewModel.deleteGoal(it) },
-                    onAddCategory = { name, display, hex -> viewModel.addCategory(name, display, hex) },
-                    onUpdateCategory = { name, display, hex -> viewModel.updateCategory(name, display, hex) },
-                    onDeleteCategory = { name -> viewModel.deleteCategory(name) },
-                    onNavigateBack = { selectedTab = 0 }
+                    onDeleteGoal = { viewModel.deleteGoal(it) }
                 )
             }
         }

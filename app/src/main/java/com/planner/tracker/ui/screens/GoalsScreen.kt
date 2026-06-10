@@ -64,11 +64,7 @@ fun GoalsScreen(
     goals: List<Goal>,
     categoryProgress: Map<String, Pair<Int, Int>>,
     onUpsertGoal: (Goal) -> Unit,
-    onDeleteGoal: (Long) -> Unit,
-    onAddCategory: (String, String, String) -> Unit,
-    onUpdateCategory: (String, String, String) -> Unit,
-    onDeleteCategory: (String) -> Unit,
-    onNavigateBack: () -> Unit
+    onDeleteGoal: (Long) -> Unit
 ) {
     val categoryMap = remember(categories) { categories.associateBy { it.name } }
 

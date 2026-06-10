@@ -83,9 +83,7 @@ fun StatsScreen(
     monthlyDailyCategoryMap: Map<Long, List<String>>,
     onMonthChange: (Int, Int) -> Unit,
     onDateSelected: (Long) -> Unit,
-    onNavigateToGoals: () -> Unit,
-    onExport: () -> Unit,
-    onImport: () -> Unit
+    onNavigateToGoals: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var year by remember(currentYear) { mutableIntStateOf(currentYear) }
