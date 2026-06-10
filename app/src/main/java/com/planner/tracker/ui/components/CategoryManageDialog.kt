@@ -1,6 +1,8 @@
 package com.planner.tracker.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -15,7 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
+
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -48,6 +50,7 @@ private val presetColors = listOf(
     "FFFF5722", "FF607D8B", "FF795548", "FF009688", "FFE91E63", "FF3F51B5"
 )
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CategoryManageDialog(
     categories: List<CategoryEntity>,
