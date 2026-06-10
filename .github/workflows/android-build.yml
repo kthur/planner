@@ -37,10 +37,6 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      - name: Decode Service Account Key
-        if: github.event_name != 'pull_request'
-        run: echo "${{ secrets.CREDENTIAL_FILE_CONTENT }}" | base64 -d > firebase-key.json
-
       - name: Upload to Firebase App Distribution
         if: github.event_name != 'pull_request'
         uses: wzieba/Firebase-Distribution-Github-Action@v1
