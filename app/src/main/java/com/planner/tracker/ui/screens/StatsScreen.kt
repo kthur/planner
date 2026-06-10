@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,18 +47,22 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import kotlin.math.cos
+import kotlin.math.min
+import kotlin.math.sin
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.planner.tracker.data.Category
+import com.planner.tracker.data.CategoryEntity
 import com.planner.tracker.data.CategoryStat
 import com.planner.tracker.data.DailyCategoryStat
 import com.planner.tracker.data.DailyStat
+import com.planner.tracker.data.Entry
 import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.CardBackground
 import com.planner.tracker.ui.theme.TextPrimary
 import com.planner.tracker.ui.theme.TextSecondary
-import com.planner.tracker.ui.theme.categoryColor
+import com.planner.tracker.ui.theme.categoryColorFromHex
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -65,16 +70,18 @@ import java.util.Locale
 
 @Composable
 fun StatsScreen(
+    categories: List<CategoryEntity>,
     currentYear: Int,
     currentMonth: Int,
     selectedDate: Long,
+    dailyEntries: List<Entry>,
     monthlyStats: List<CategoryStat>,
     dailyStats: List<CategoryStat>,
     weeklyStats: List<CategoryStat>,
     weeklyDailyStats: List<DailyStat>,
     weeklyDailyCategoryStats: List<DailyCategoryStat>,
     monthlyDailyStats: List<DailyStat>,
-    monthlyDailyCategoryMap: Map<Long, List<Category>>,
+    monthlyDailyCategoryMap: Map<Long, List<String>>,
     onMonthChange: (Int, Int) -> Unit,
     onDateSelected: (Long) -> Unit,
     onNavigateToGoals: () -> Unit,
@@ -86,6 +93,8 @@ fun StatsScreen(
     var month by remember(currentMonth) { mutableIntStateOf(currentMonth) }
     var selectedDay by remember(selectedDate) { mutableLongStateOf(selectedDate) }
     val tabs = listOf("일간", "주간", "월간")
+
+    val categoryMap = remember(categories) { categories.associateBy { it.name } }
 
     val stats = when (selectedTab) {
         0 -> dailyStats
@@ -150,7 +159,7 @@ fun StatsScreen(
                     IconButton(onClick = { month++; if (month > 12) { month = 1; year++ }; onMonthChange(year, month) }) { Icon(Icons.Default.ChevronRight, "다음 달", tint = TextPrimary) }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                MonthCalendar(year = year, month = month, dailyCategoryMap = monthlyDailyCategoryMap, onDateClick = { millis -> selectedDay = millis; onDateSelected(millis) })
+                MonthCalendar(year = year, month = month, dailyCategoryMap = monthlyDailyCategoryMap, categoryMap = categoryMap, onDateClick = { millis -> selectedDay = millis; onDateSelected(millis) })
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
@@ -180,19 +189,22 @@ fun StatsScreen(
                         var startAngle = -90f
                         stats.forEach { stat ->
                             val sweepAngle = (stat.total.toFloat() / totalMinutes) * 360f
-                            drawArc(color = categoryColor(stat.category), startAngle = startAngle, sweepAngle = sweepAngle, useCenter = false, style = Stroke(width = strokeWidth, cap = StrokeCap.Butt), size = Size(canvasSize.width - strokeWidth, canvasSize.height - strokeWidth), topLeft = Offset(padding, padding))
+                            val catColor = categoryMap[stat.category]?.let { categoryColorFromHex(it.colorHex) } ?: Accent
+                            drawArc(color = catColor, startAngle = startAngle, sweepAngle = sweepAngle, useCenter = false, style = Stroke(width = strokeWidth, cap = StrokeCap.Butt), size = Size(canvasSize.width - strokeWidth, canvasSize.height - strokeWidth), topLeft = Offset(padding, padding))
                             startAngle += sweepAngle
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
 
                     stats.forEach { stat ->
-                        val color = categoryColor(stat.category)
+                        val catInfo = categoryMap[stat.category]
+                        val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
+                        val displayName = catInfo?.displayName ?: stat.category
                         val pct = if (totalMinutes > 0) (stat.total.toFloat() / totalMinutes * 100) else 0f
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(12.dp).clip(CircleShape).background(color))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = stat.category.displayName, modifier = Modifier.width(80.dp), color = TextPrimary)
+                            Text(text = displayName, modifier = Modifier.width(80.dp), color = TextPrimary)
                             Text(text = "${stat.total}분", modifier = Modifier.weight(1f), color = TextSecondary)
                             Text(text = String.format("%.1f%%", pct), color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.width(60.dp), textAlign = TextAlign.End)
                         }
@@ -200,7 +212,51 @@ fun StatsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            if (selectedTab == 0 && dailyEntries.isNotEmpty()) {
+                var showClock by remember { mutableStateOf(false) }
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardBackground), modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Text(text = "상세 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { showClock = !showClock }) {
+                                Text(if (showClock) "리스트 보기" else "시계 보기", color = Accent)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        if (showClock) {
+                            DailyClockView(entries = dailyEntries, categoryMap = categoryMap)
+                        } else {
+                            dailyEntries.forEach { entry ->
+                                val catInfo = categoryMap[entry.category]
+                                val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
+                                val displayName = catInfo?.displayName ?: entry.category
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(Modifier.size(10.dp).clip(CircleShape).background(color))
+                                    Spacer(Modifier.width(8.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(text = displayName, color = TextPrimary, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
+                                        if (entry.startTime > 0 && entry.endTime > 0) {
+                                            val tf = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+                                            Text(text = "${tf.format(Date(entry.startTime))} - ${tf.format(Date(entry.endTime))}", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                    Text(text = "${entry.minutes}분", color = TextPrimary, fontWeight = FontWeight.Bold)
+                                    if (entry.note.isNotBlank()) {
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(text = entry.note, color = TextSecondary, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             if (selectedTab == 1 && weeklyDailyCategoryStats.isNotEmpty()) {
                 val dayFormat = remember { SimpleDateFormat("E", Locale.KOREAN) }
@@ -210,7 +266,7 @@ fun StatsScreen(
                         Text(text = "일별 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(12.dp))
                         val grouped = weeklyDailyCategoryStats.groupBy { it.date }.mapValues { (_, stats) ->
-                            stats.sortedBy { it.category.ordinal }
+                            stats.sortedBy { it.category }
                         }
                         grouped.forEach { (date, catStats) ->
                             val dayTotal = dailyTotals[date] ?: catStats.sumOf { it.total }
@@ -221,9 +277,11 @@ fun StatsScreen(
                                 Box(Modifier.weight(1f).height(24.dp).clip(RoundedCornerShape(4.dp)).background(Accent.copy(alpha = 0.12f))) {
                                     Row(Modifier.fillMaxSize()) {
                                         catStats.forEach { stat ->
+                                            val barCatInfo = categoryMap[stat.category]
+                                            val barColor = if (barCatInfo != null) categoryColorFromHex(barCatInfo.colorHex) else Accent
                                             Box(
                                                 Modifier.fillMaxHeight().weight(stat.total.toFloat() / dayTotal)
-                                                    .background(categoryColor(stat.category)),
+                                                    .background(barColor),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 if (stat.total >= 15) Text("${stat.total}분", color = TextPrimary, fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Bold)
@@ -243,11 +301,107 @@ fun StatsScreen(
     }
 }
 
+private fun timeToAngle(hourOfDay: Int, minute: Int): Float {
+    val h = hourOfDay % 12
+    return (h * 30 + minute * 0.5f) - 90f
+}
+
+@Composable
+private fun DailyClockView(
+    entries: List<Entry>,
+    categoryMap: Map<String, CategoryEntity>
+) {
+    val entriesWithTime = entries.filter { it.startTime > 0 && it.endTime > 0 }
+    val cal = remember { Calendar.getInstance() }
+
+    Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = CardBackground), modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = "12시간 시계", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Canvas(modifier = Modifier.size(260.dp)) {
+                val cx = size.width / 2f
+                val cy = size.height / 2f
+                val radius = minOf(cx, cy) - 16f
+                val innerRadius = radius * 0.78f
+
+                drawCircle(color = Accent.copy(alpha = 0.08f), radius = radius, center = Offset(cx, cy))
+
+                for (i in 0 until 12) {
+                    val angle = Math.toRadians((i * 30 - 90).toDouble())
+                    val outerX = cx + (radius * cos(angle)).toFloat()
+                    val outerY = cy + (radius * sin(angle)).toFloat()
+                    val innerX = cx + (radius * 0.88f * cos(angle)).toFloat()
+                    val innerY = cy + (radius * 0.88f * sin(angle)).toFloat()
+                    drawLine(
+                        color = Accent.copy(alpha = 0.4f),
+                        start = Offset(innerX, innerY),
+                        end = Offset(outerX, outerY),
+                        strokeWidth = if (i % 3 == 0) 3f else 1.5f
+                    )
+                }
+
+                entriesWithTime.forEach { entry ->
+                    cal.timeInMillis = entry.startTime
+                    val startHour = cal.get(Calendar.HOUR_OF_DAY)
+                    val startMin = cal.get(Calendar.MINUTE)
+                    cal.timeInMillis = entry.endTime
+                    val endHour = cal.get(Calendar.HOUR_OF_DAY)
+                    val endMin = cal.get(Calendar.MINUTE)
+
+                    val startAngle = timeToAngle(startHour, startMin)
+                    val endAngle = timeToAngle(endHour, endMin)
+                    val sweep = if (endAngle > startAngle) endAngle - startAngle else (360f - startAngle + endAngle)
+
+                    val catInfo = categoryMap[entry.category]
+                    val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
+
+                    drawArc(
+                        color = color.copy(alpha = 0.7f),
+                        startAngle = startAngle,
+                        sweepAngle = sweep,
+                        useCenter = false,
+                        style = Stroke(width = radius * 0.22f, cap = StrokeCap.Round),
+                        topLeft = Offset(cx - innerRadius, cy - innerRadius),
+                        size = Size(innerRadius * 2, innerRadius * 2)
+                    )
+                }
+
+                drawCircle(color = Accent.copy(alpha = 0.15f), radius = 6f, center = Offset(cx, cy))
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            entriesWithTime.take(6).forEach { entry ->
+                val catInfo = categoryMap[entry.category]
+                val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
+                val displayName = catInfo?.displayName ?: entry.category
+                cal.timeInMillis = entry.startTime
+                val sh = cal.get(Calendar.HOUR_OF_DAY)
+                val sm = cal.get(Calendar.MINUTE)
+                cal.timeInMillis = entry.endTime
+                val eh = cal.get(Calendar.HOUR_OF_DAY)
+                val em = cal.get(Calendar.MINUTE)
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+                    Spacer(Modifier.width(6.dp))
+                    Text(text = displayName, color = TextPrimary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    Text(text = "${sh}:${sm.toString().padStart(2, '0')}-${eh}:${em.toString().padStart(2, '0')}", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            if (entriesWithTime.size > 6) {
+                Text(text = "...외 ${entriesWithTime.size - 6}개", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
 @Composable
 private fun MonthCalendar(
     year: Int,
     month: Int,
-    dailyCategoryMap: Map<Long, List<Category>>,
+    dailyCategoryMap: Map<Long, List<String>>,
+    categoryMap: Map<String, CategoryEntity>,
     onDateClick: (Long) -> Unit
 ) {
     val cal = remember { Calendar.getInstance() }
@@ -291,7 +445,11 @@ private fun MonthCalendar(
                                 Text(text = currentDay.toString(), style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = if (categories != null) FontWeight.Bold else FontWeight.Normal)
                                 if (categories != null) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        categories.forEach { cat -> Box(Modifier.size(5.dp).clip(CircleShape).background(categoryColor(cat))) }
+                                        categories.forEach { catName ->
+                                            val catInfo = categoryMap[catName]
+                                            val dotColor = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
+                                            Box(Modifier.size(5.dp).clip(CircleShape).background(dotColor))
+                                        }
                                     }
                                 }
                             }

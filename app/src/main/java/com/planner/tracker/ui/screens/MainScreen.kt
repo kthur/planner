@@ -54,7 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.planner.tracker.data.Category
+import com.planner.tracker.data.CategoryEntity
 import com.planner.tracker.data.Entry
 import com.planner.tracker.ui.components.CategorySelector
 import com.planner.tracker.ui.components.DatePickerDialogScreen
@@ -72,24 +72,25 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
+    categories: List<CategoryEntity>,
     selectedDate: Long,
     entries: List<Entry>,
     onDateSelected: (Long) -> Unit,
-    onAddEntry: (Category, Int, String, Long, Long) -> Unit,
+    onAddEntry: (String, Int, String, Long, Long) -> Unit,
     onDeleteEntry: (Entry) -> Unit,
     onUpdateEntry: (Entry) -> Unit,
     isTracking: Boolean = false,
     elapsedSeconds: Long = 0,
     alarmTriggered: Boolean = false,
     onStartTracking: (String) -> Unit = {},
-    onStopTrackingAndSave: (Category, String) -> Pair<Long, Long>? = { _, _ -> null },
+    onStopTrackingAndSave: (String, String) -> Pair<Long, Long>? = { _, _ -> null },
     onCancelTracking: () -> Unit = {},
     onClearAlarm: () -> Unit = {}
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
-    var selectedCategory by remember { mutableStateOf(Category.HEALTH) }
+    var selectedCategory by remember(categories) { mutableStateOf(categories.firstOrNull()?.name ?: "") }
     var note by remember { mutableStateOf("") }
     var startTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var endTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -204,7 +205,7 @@ fun MainScreen(
             title = { Text("항목 수정") },
             text = {
                 Column {
-                    CategorySelector(selected = editCat.value, onSelect = { editCat.value = it })
+                    CategorySelector(categories = categories, selected = editCat.value, onSelect = { editCat.value = it })
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(value = editStartH.value, onValueChange = { editStartH.value = it }, label = { Text("시작 시") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true)
@@ -243,11 +244,14 @@ fun MainScreen(
         )
     }
 
+    val categoryInfoMap = remember(categories) { categories.associateBy { it.name } }
+
     deleteConfirmEntry?.let { entry ->
+        val catDisplay = categoryInfoMap[entry.category]?.displayName ?: entry.category
         AlertDialog(
             onDismissRequest = { deleteConfirmEntry = null },
             title = { Text("항목 삭제") },
-            text = { Text("\"${entry.category.displayName}\" 항목을 삭제하시겠습니까?") },
+            text = { Text("\"${catDisplay}\" 항목을 삭제하시겠습니까?") },
             confirmButton = { TextButton(onClick = { onDeleteEntry(entry); deleteConfirmEntry = null }) { Text("삭제", color = Accent) } },
             dismissButton = { TextButton(onClick = { deleteConfirmEntry = null }) { Text("취소") } }
         )
@@ -272,7 +276,7 @@ fun MainScreen(
             ) {
                 Text("기록 추가", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(12.dp))
-                CategorySelector(selected = selectedCategory, onSelect = { selectedCategory = it })
+                CategorySelector(categories = categories, selected = selectedCategory, onSelect = { selectedCategory = it })
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -410,7 +414,10 @@ fun MainScreen(
 
                 val filteredEntries = remember(entries, searchQuery) {
                     if (searchQuery.isBlank()) entries
-                    else entries.filter { e -> e.note.contains(searchQuery, ignoreCase = true) || e.category.displayName.contains(searchQuery, ignoreCase = true) }
+                    else entries.filter { e ->
+                        val disp = categoryInfoMap[e.category]?.displayName ?: e.category
+                        e.note.contains(searchQuery, ignoreCase = true) || disp.contains(searchQuery, ignoreCase = true)
+                    }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -445,7 +452,7 @@ fun MainScreen(
                                     }
                                 },
                                 dismissContent = {
-                                    EntryCard(entry = entry, onDelete = { deleteConfirmEntry = entry }, onEdit = { editingEntry = entry })
+                                    EntryCard(entry = entry, categoryInfo = categoryInfoMap, onDelete = { deleteConfirmEntry = entry }, onEdit = { editingEntry = entry })
                                 }
                             )
                         }

@@ -28,11 +28,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.planner.tracker.data.CategoryEntity
 import com.planner.tracker.data.Entry
 import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.TextPrimary
 import com.planner.tracker.ui.theme.TextSecondary
-import com.planner.tracker.ui.theme.categoryColor
+import com.planner.tracker.ui.theme.categoryColorFromHex
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -40,11 +41,14 @@ import java.util.Locale
 @Composable
 fun EntryCard(
     entry: Entry,
+    categoryInfo: Map<String, CategoryEntity>,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val color = categoryColor(entry.category)
+    val cat = categoryInfo[entry.category]
+    val displayName = cat?.displayName ?: entry.category
+    val color = if (cat != null) categoryColorFromHex(cat.colorHex) else Accent
     val timeFormat = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
     Card(
@@ -69,7 +73,7 @@ fun EntryCard(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = entry.category.displayName,
+                    text = displayName,
                     color = color,
                     fontWeight = FontWeight.SemiBold
                 )

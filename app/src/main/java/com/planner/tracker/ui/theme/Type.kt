@@ -8,42 +8,34 @@ import androidx.compose.ui.unit.sp
 val PlannerTypography = Typography(
     headlineLarge = TextStyle(
         fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        color = TextPrimary
+        fontSize = 28.sp
     ),
     headlineMedium = TextStyle(
         fontWeight = FontWeight.Bold,
-        fontSize = 22.sp,
-        color = TextPrimary
+        fontSize = 22.sp
     ),
     titleLarge = TextStyle(
         fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        color = TextPrimary
+        fontSize = 20.sp
     ),
     titleMedium = TextStyle(
         fontWeight = FontWeight.Medium,
-        fontSize = 16.sp,
-        color = TextPrimary
+        fontSize = 16.sp
     ),
     bodyLarge = TextStyle(
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        color = TextPrimary
+        fontSize = 16.sp
     ),
     bodyMedium = TextStyle(
         fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        color = TextSecondary
+        fontSize = 14.sp
     ),
     labelLarge = TextStyle(
         fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        color = TextPrimary
+        fontSize = 14.sp
     ),
     labelSmall = TextStyle(
         fontWeight = FontWeight.Light,
-        fontSize = 12.sp,
-        color = TextSecondary
+        fontSize = 12.sp
     )
 )

@@ -28,10 +28,10 @@ private val LightColorScheme = lightColorScheme(
     surface = LightSurface,
     surfaceVariant = LightCardBackground,
     onPrimary = TextOnAccent,
-    onSecondary = TextPrimary,
-    onBackground = TextPrimary,
-    onSurface = TextPrimary,
-    onSurfaceVariant = TextSecondary
+    onSecondary = LightTextPrimary,
+    onBackground = LightTextPrimary,
+    onSurface = LightTextPrimary,
+    onSurfaceVariant = LightTextSecondary
 )
 
 @Composable

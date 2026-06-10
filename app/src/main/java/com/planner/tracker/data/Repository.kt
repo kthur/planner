@@ -3,7 +3,11 @@ package com.planner.tracker.data
 import kotlinx.coroutines.flow.Flow
 import java.util.Calendar
 
-class Repository(private val entryDao: EntryDao, private val goalDao: GoalDao) {
+class Repository(
+    private val entryDao: EntryDao,
+    private val goalDao: GoalDao,
+    private val categoryDao: CategoryDao
+) {
 
     fun getEntriesByDate(date: Long): Flow<List<Entry>> = entryDao.getEntriesByDate(date)
 
@@ -16,8 +20,8 @@ class Repository(private val entryDao: EntryDao, private val goalDao: GoalDao) {
     fun getStatsInRange(start: Long, end: Long): Flow<List<CategoryStat>> =
         entryDao.getStatsInRange(start, end)
 
-    fun getCategoryTotalInRange(category: Category, start: Long, end: Long): Flow<Int?> =
-        entryDao.getCategoryTotalInRange(category, start, end)
+    fun getCategoryTotalInRange(categoryName: String, start: Long, end: Long): Flow<Int?> =
+        entryDao.getCategoryTotalInRange(categoryName, start, end)
 
     fun getDailyStatsInRange(start: Long, end: Long): Flow<List<DailyStat>> =
         entryDao.getDailyStatsInRange(start, end)
@@ -34,14 +38,22 @@ class Repository(private val entryDao: EntryDao, private val goalDao: GoalDao) {
 
     fun getGoalsByMonth(yearMonth: String): Flow<List<Goal>> = goalDao.getGoalsByMonth(yearMonth)
 
-    fun getGoalsByCategory(category: Category): Flow<List<Goal>> =
-        goalDao.getGoalsByCategory(category)
+    fun getGoalsByCategory(categoryName: String): Flow<List<Goal>> =
+        goalDao.getGoalsByCategory(categoryName)
 
     suspend fun getGoalById(id: Long): Goal? = goalDao.getGoalById(id)
 
     suspend fun upsertGoal(goal: Goal) = goalDao.upsert(goal)
 
     suspend fun deleteGoal(id: Long) = goalDao.deleteById(id)
+
+    fun getAllCategories(): Flow<List<CategoryEntity>> = categoryDao.getAll()
+
+    suspend fun getAllCategoriesOnce(): List<CategoryEntity> = categoryDao.getAllOnce()
+
+    suspend fun upsertCategory(category: CategoryEntity) = categoryDao.upsert(category)
+
+    suspend fun deleteCategory(name: String) = categoryDao.delete(name)
 
     companion object {
         fun getMonthRange(year: Int, month: Int): Pair<Long, Long> {

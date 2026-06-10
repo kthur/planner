@@ -26,7 +26,8 @@ class GoalWidgetProvider : AppWidgetProvider() {
         val app = context.applicationContext as PlannerApp
         val repository = Repository(
             app.database.entryDao(),
-            app.database.goalDao()
+            app.database.goalDao(),
+            app.database.categoryDao()
         )
 
         val cal = Calendar.getInstance()

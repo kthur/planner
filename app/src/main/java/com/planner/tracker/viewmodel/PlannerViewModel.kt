@@ -9,7 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.planner.tracker.data.AppDatabase
-import com.planner.tracker.data.Category
+import com.planner.tracker.data.CategoryEntity
 import com.planner.tracker.data.CategoryStat
 import com.planner.tracker.data.DailyCategoryStat
 import com.planner.tracker.data.DailyStat
@@ -59,7 +59,9 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     val goals: StateFlow<List<Goal>>
 
-    val categoryProgress: StateFlow<Map<Category, Pair<Int, Int>>>
+    val categories: StateFlow<List<CategoryEntity>>
+
+    val categoryProgress: StateFlow<Map<String, Pair<Int, Int>>>
 
     private val _isTracking = MutableStateFlow(false)
     val isTracking: StateFlow<Boolean> = _isTracking
@@ -76,11 +78,15 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     val weeklyDailyCategoryStats: StateFlow<List<DailyCategoryStat>>
 
-    val monthlyDailyCategoryMap: StateFlow<Map<Long, List<Category>>>
+    val monthlyDailyCategoryMap: StateFlow<Map<Long, List<String>>>
 
     init {
         val db = AppDatabase.getInstance(application)
-        repository = Repository(db.entryDao(), db.goalDao())
+        repository = Repository(db.entryDao(), db.goalDao(), db.categoryDao())
+
+        categories = repository.getAllCategories().stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+        )
 
         entriesForSelectedDate = _selectedDate.flatMapLatest { date ->
             val dayRange = Repository.getDayRange(date)
@@ -162,7 +168,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         _currentMonth.value = month
     }
 
-    fun addEntry(category: Category, minutes: Int, note: String, startTime: Long = 0, endTime: Long = 0) {
+    fun addEntry(category: String, minutes: Int, note: String, startTime: Long = 0, endTime: Long = 0) {
         viewModelScope.launch {
             val dayRange = Repository.getDayRange(if (startTime > 0) startTime else _selectedDate.value)
             repository.insertEntry(
@@ -226,7 +232,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun stopTrackingAndSave(category: Category, note: String): Pair<Long, Long>? {
+    fun stopTrackingAndSave(category: String, note: String): Pair<Long, Long>? {
         trackingJob?.cancel()
         trackingJob = null
         cancelTrackingNotification()
@@ -256,6 +262,24 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         cancelTrackingNotification()
         _isTracking.value = false
         _alarmTriggered.value = false
+    }
+
+    fun addCategory(name: String, displayName: String, colorHex: String) {
+        viewModelScope.launch {
+            repository.upsertCategory(CategoryEntity(name = name, displayName = displayName, colorHex = colorHex))
+        }
+    }
+
+    fun updateCategory(name: String, displayName: String, colorHex: String) {
+        viewModelScope.launch {
+            repository.upsertCategory(CategoryEntity(name = name, displayName = displayName, colorHex = colorHex))
+        }
+    }
+
+    fun deleteCategory(name: String) {
+        viewModelScope.launch {
+            repository.deleteCategory(name)
+        }
     }
 
     fun clearAlarmTriggered() {
@@ -322,11 +346,11 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             val sb = StringBuilder()
             sb.appendLine("{\"entries\":[")
             entries.forEachIndexed { i, e ->
-                sb.appendLine("""{"id":${e.id},"date":${e.date},"category":"${e.category.name}","minutes":${e.minutes},"note":"${e.note.replace("\"", "\\\"")}","startTime":${e.startTime},"endTime":${e.endTime}}${if (i < entries.lastIndex) "," else ""}""")
+                sb.appendLine("""{"id":${e.id},"date":${e.date},"category":"${e.category}","minutes":${e.minutes},"note":"${e.note.replace("\"", "\\\"")}","startTime":${e.startTime},"endTime":${e.endTime}}${if (i < entries.lastIndex) "," else ""}""")
             }
             sb.appendLine("],\"goals\":[")
             allGoals.forEachIndexed { i, g ->
-                sb.appendLine("""{"id":${g.id},"yearMonth":"${g.yearMonth}","category":"${g.category.name}","description":"${g.description.replace("\"", "\\\"")}","targetMinutes":${g.targetMinutes},"deadline":${g.deadline},"isCompleted":${g.isCompleted}}${if (i < allGoals.lastIndex) "," else ""}""")
+                sb.appendLine("""{"id":${g.id},"yearMonth":"${g.yearMonth}","category":"${g.category}","description":"${g.description.replace("\"", "\\\"")}","targetMinutes":${g.targetMinutes},"deadline":${g.deadline},"isCompleted":${g.isCompleted}}${if (i < allGoals.lastIndex) "," else ""}""")
             }
             sb.appendLine("]}")
             onResult(sb.toString())
@@ -343,7 +367,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                     val entry = Entry(
                         id = obj.getLong("id"),
                         date = obj.getLong("date"),
-                        category = Category.valueOf(obj.getString("category")),
+                        category = obj.getString("category"),
                         minutes = obj.getInt("minutes"),
                         note = obj.optString("note", ""),
                         startTime = obj.getLong("startTime"),
@@ -358,7 +382,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                         val goal = Goal(
                             id = obj.getLong("id"),
                             yearMonth = obj.getString("yearMonth"),
-                            category = Category.valueOf(obj.getString("category")),
+                            category = obj.getString("category"),
                             description = obj.optString("description", ""),
                             targetMinutes = obj.getInt("targetMinutes"),
                             deadline = obj.getLong("deadline"),

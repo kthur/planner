@@ -17,8 +17,8 @@ interface GoalDao {
     @Query("SELECT * FROM goals WHERE yearMonth = :yearMonth ORDER BY id DESC")
     fun getGoalsByMonth(yearMonth: String): Flow<List<Goal>>
 
-    @Query("SELECT * FROM goals WHERE category = :category ORDER BY id DESC")
-    fun getGoalsByCategory(category: Category): Flow<List<Goal>>
+    @Query("SELECT * FROM goals WHERE category = :categoryName ORDER BY id DESC")
+    fun getGoalsByCategory(categoryName: String): Flow<List<Goal>>
 
     @Query("SELECT * FROM goals WHERE id = :id LIMIT 1")
     suspend fun getGoalById(id: Long): Goal?

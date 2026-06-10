@@ -33,15 +33,15 @@ interface EntryDao {
     @Query("SELECT date, SUM(minutes) as total FROM entries WHERE date >= :start AND date <= :end GROUP BY date ORDER BY date ASC")
     fun getDailyStatsInRange(start: Long, end: Long): Flow<List<DailyStat>>
 
-    @Query("SELECT SUM(minutes) FROM entries WHERE date >= :start AND date <= :end AND category = :category")
-    fun getCategoryTotalInRange(category: Category, start: Long, end: Long): Flow<Int?>
+    @Query("SELECT SUM(minutes) FROM entries WHERE date >= :start AND date <= :end AND category = :categoryName")
+    fun getCategoryTotalInRange(categoryName: String, start: Long, end: Long): Flow<Int?>
 
     @Query("DELETE FROM entries WHERE id = :id")
     suspend fun deleteById(id: Long)
 }
 
 data class CategoryStat(
-    val category: Category,
+    val category: String,
     val total: Int
 )
 

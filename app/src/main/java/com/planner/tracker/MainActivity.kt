@@ -119,6 +119,7 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
     val alarmTriggered by viewModel.alarmTriggered.collectAsState()
     val weeklyDailyCategoryStats by viewModel.weeklyDailyCategoryStats.collectAsState()
     val monthlyDailyCategoryMap by viewModel.monthlyDailyCategoryMap.collectAsState()
+    val categories by viewModel.categories.collectAsState()
     val ctx = LocalContext.current
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -176,6 +177,7 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
         Box(modifier = Modifier.padding(padding)) {
             when (selectedTab) {
                 0 -> MainScreen(
+                    categories = categories,
                     selectedDate = selectedDate,
                     entries = entries,
                     onDateSelected = { viewModel.setSelectedDate(it) },
@@ -191,9 +193,11 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     onClearAlarm = { viewModel.clearAlarmTriggered() }
                 )
                 1 -> StatsScreen(
+                    categories = categories,
                     currentYear = yearly,
                     currentMonth = monthly,
                     selectedDate = selectedDate,
+                    dailyEntries = entries,
                     monthlyStats = stats,
                     dailyStats = dailyStats,
                     weeklyStats = weeklyStats,
@@ -208,12 +212,16 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     onImport = { importLauncher.launch(arrayOf("application/json")) }
                 )
                 2 -> GoalsScreen(
+                    categories = categories,
                     currentYear = yearly,
                     currentMonth = monthly,
                     goals = goals,
                     categoryProgress = categoryProgress,
                     onUpsertGoal = { viewModel.upsertGoal(it) },
                     onDeleteGoal = { viewModel.deleteGoal(it) },
+                    onAddCategory = { name, display, hex -> viewModel.addCategory(name, display, hex) },
+                    onUpdateCategory = { name, display, hex -> viewModel.updateCategory(name, display, hex) },
+                    onDeleteCategory = { name -> viewModel.deleteCategory(name) },
                     onNavigateBack = { selectedTab = 0 }
                 )
             }

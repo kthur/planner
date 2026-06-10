@@ -7,10 +7,11 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Entry::class, Goal::class], version = 2, exportSchema = false)
+@Database(entities = [Entry::class, Goal::class, CategoryEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun entryDao(): EntryDao
     abstract fun goalDao(): GoalDao
+    abstract fun categoryDao(): CategoryDao
 
     companion object {
         @Volatile
@@ -26,13 +27,32 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS categories (
+                        name TEXT NOT NULL PRIMARY KEY,
+                        displayName TEXT NOT NULL,
+                        colorHex TEXT NOT NULL,
+                        isDefault INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+                db.execSQL("INSERT OR IGNORE INTO categories (name, displayName, colorHex, isDefault) VALUES ('HEALTH', '운동', '4CAF50', 1)")
+                db.execSQL("INSERT OR IGNORE INTO categories (name, displayName, colorHex, isDefault) VALUES ('MIND', '독서', '2196F3', 1)")
+                db.execSQL("INSERT OR IGNORE INTO categories (name, displayName, colorHex, isDefault) VALUES ('FAMILY', '가족', 'FF9800', 1)")
+                db.execSQL("INSERT OR IGNORE INTO categories (name, displayName, colorHex, isDefault) VALUES ('LANGUAGE', '외국어', '9C27B0', 1)")
+                db.execSQL("INSERT OR IGNORE INTO categories (name, displayName, colorHex, isDefault) VALUES ('FINANCE', '재테크', 'F44336', 1)")
+                db.execSQL("INSERT OR IGNORE INTO categories (name, displayName, colorHex, isDefault) VALUES ('TECHNOLOGY', '기술', '00BCD4', 1)")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "planner_db"
-                ).addMigrations(MIGRATION_1_2).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { INSTANCE = it }
             }
         }
     }

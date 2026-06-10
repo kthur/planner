@@ -43,36 +43,44 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.planner.tracker.data.Category
+import com.planner.tracker.data.CategoryEntity
 import com.planner.tracker.data.Goal
+import com.planner.tracker.ui.components.CategoryManageDialog
 import com.planner.tracker.ui.components.CategorySelector
 import com.planner.tracker.ui.components.DatePickerDialogScreen
 import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.CardBackground
 import com.planner.tracker.ui.theme.TextPrimary
 import com.planner.tracker.ui.theme.TextSecondary
-import com.planner.tracker.ui.theme.categoryColor
+import com.planner.tracker.ui.theme.categoryColorFromHex
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 @Composable
 fun GoalsScreen(
+    categories: List<CategoryEntity>,
     currentYear: Int,
     currentMonth: Int,
     goals: List<Goal>,
-    categoryProgress: Map<Category, Pair<Int, Int>>,
+    categoryProgress: Map<String, Pair<Int, Int>>,
     onUpsertGoal: (Goal) -> Unit,
     onDeleteGoal: (Long) -> Unit,
+    onAddCategory: (String, String, String) -> Unit,
+    onUpdateCategory: (String, String, String) -> Unit,
+    onDeleteCategory: (String) -> Unit,
     onNavigateBack: () -> Unit
 ) {
+    val categoryMap = remember(categories) { categories.associateBy { it.name } }
+
     var showDialog by remember { mutableStateOf(false) }
     var showDeadlinePicker by remember { mutableStateOf(false) }
     var editingGoal by remember { mutableStateOf<Goal?>(null) }
     var description by remember { mutableStateOf("") }
     var targetMinutes by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf(Category.HEALTH) }
+    var selectedCategory by remember(categories) { mutableStateOf(categories.firstOrNull()?.name ?: "") }
     var deadlineMillis by remember { mutableLongStateOf(0L) }
+    var showCategoryManageDialog by remember { mutableStateOf(false) }
 
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
 
@@ -80,7 +88,7 @@ fun GoalsScreen(
         editingGoal = null
         description = ""
         targetMinutes = ""
-        selectedCategory = Category.HEALTH
+        selectedCategory = categories.firstOrNull()?.name ?: ""
         deadlineMillis = 0L
         showDialog = true
     }
@@ -121,11 +129,17 @@ fun GoalsScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            Text(
-                text = "${currentYear}년 ${currentMonth}월 목표",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "${currentYear}년 ${currentMonth}월 목표",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { showCategoryManageDialog = true }) {
+                    Text("카테고리 관리", color = Accent)
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "카테고리별 진행 상황과 세부 목표를 관리하세요.",
@@ -166,7 +180,9 @@ fun GoalsScreen(
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(goals, key = { it.id }) { goal ->
-                    val color = categoryColor(goal.category)
+                    val catInfo = categoryMap[goal.category]
+                    val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
+                    val displayName = catInfo?.displayName ?: goal.category
                     val progress = categoryProgress[goal.category]
                     val currentMinutes = progress?.first ?: 0
                     val targetMin = goal.targetMinutes
@@ -186,7 +202,7 @@ fun GoalsScreen(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = goal.category.displayName,
+                                    text = displayName,
                                     color = if (goal.isCompleted) TextSecondary else color,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -252,6 +268,7 @@ fun GoalsScreen(
             text = {
                 Column {
                     CategorySelector(
+                        categories = categories,
                         selected = selectedCategory,
                         onSelect = { selectedCategory = it }
                     )
@@ -309,6 +326,16 @@ fun GoalsScreen(
                     Text("취소")
                 }
             }
+        )
+    }
+
+    if (showCategoryManageDialog) {
+        CategoryManageDialog(
+            categories = categories,
+            onDismiss = { showCategoryManageDialog = false },
+            onAdd = { name, display, hex -> onAddCategory(name, display, hex) },
+            onUpdate = { name, display, hex -> onUpdateCategory(name, display, hex) },
+            onDelete = { name -> onDeleteCategory(name) }
         )
     }
 }

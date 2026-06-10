@@ -13,14 +13,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.planner.tracker.data.Category
-import com.planner.tracker.ui.theme.categoryColor
+import com.planner.tracker.data.CategoryEntity
+import com.planner.tracker.ui.theme.categoryColorFromHex
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CategorySelector(
-    selected: Category,
-    onSelect: (Category) -> Unit,
+    categories: List<CategoryEntity>,
+    selected: String,
+    onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     FlowRow(
@@ -28,14 +29,14 @@ fun CategorySelector(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Category.entries.forEach { category ->
-            val color = categoryColor(category)
-            val isSelected = category == selected
+        categories.forEach { category ->
+            val color = categoryColorFromHex(category.colorHex)
+            val isSelected = category.name == selected
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
                     .background(color.copy(alpha = if (isSelected) 1f else 0.2f))
-                    .clickable { onSelect(category) }
+                    .clickable { onSelect(category.name) }
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text(

@@ -8,7 +8,7 @@ data class Goal(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val yearMonth: String,
-    val category: Category,
+    val category: String,
     val description: String = "",
     val targetMinutes: Int = 0,
     val deadline: Long = 0,
