@@ -25,6 +25,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -91,7 +92,7 @@ fun CategoryManageDialog(
                     val color = categoryColorFromHex(cat.colorHex)
                     Card(
                         shape = RoundedCornerShape(8.dp),
-                        colors = CardDefaults.cardColors(containerColor = CardBackground),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
                     ) {
                         Row(
@@ -100,10 +101,10 @@ fun CategoryManageDialog(
                         ) {
                             Box(Modifier.size(10.dp).clip(CircleShape).background(color))
                             Spacer(Modifier.size(8.dp))
-                            Text(text = cat.displayName, modifier = Modifier.weight(1f), color = TextPrimary)
+                            Text(text = cat.displayName, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onBackground)
                             if (!isDefault) {
                                 IconButton(onClick = { startEdit(cat) }, modifier = Modifier.size(32.dp)) {
-                                    Icon(Icons.Default.Edit, contentDescription = "수정", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Default.Edit, contentDescription = "수정", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                                 }
                                 IconButton(onClick = { onDelete(cat.name) }, modifier = Modifier.size(32.dp)) {
                                     Icon(Icons.Default.Delete, contentDescription = "삭제", tint = Accent, modifier = Modifier.size(18.dp))
@@ -133,7 +134,7 @@ fun CategoryManageDialog(
                         singleLine = true
                     )
                     Spacer(Modifier.height(8.dp))
-                    Text("색상 선택", color = TextSecondary)
+                    Text("색상 선택", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(4.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         presetColors.forEach { hex ->

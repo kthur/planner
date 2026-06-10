@@ -1,6 +1,7 @@
 package com.planner.tracker.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
@@ -27,6 +29,7 @@ import androidx.compose.material3.DismissValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -200,13 +203,13 @@ fun MainScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(value = editStartH.value, onValueChange = { editStartH.value = it }, label = { Text("시작 시") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true)
-                        Text(":", color = TextSecondary)
+                        Text(":", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(value = editStartM.value, onValueChange = { editStartM.value = it }, label = { Text("분") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(value = editEndH.value, onValueChange = { editEndH.value = it }, label = { Text("종료 시") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true)
-                        Text(":", color = TextSecondary)
+                        Text(":", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(value = editEndM.value, onValueChange = { editEndM.value = it }, label = { Text("분") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -294,7 +297,7 @@ fun MainScreen(
                     if (!directDurationMode) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(value = manualStartH, onValueChange = { manualStartH = it }, label = { Text("시작 시") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true)
-                            Text(":", color = TextSecondary)
+                            Text(":", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             OutlinedTextField(value = manualStartM, onValueChange = { manualStartM = it }, label = { Text("분") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true)
                             Spacer(modifier = Modifier.width(8.dp))
                             IconButton(onClick = { showStartTimePicker = true }) { Icon(Icons.Default.CalendarMonth, contentDescription = "시작 시간 선택", tint = Accent) }
@@ -302,7 +305,7 @@ fun MainScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(value = manualEndH, onValueChange = { manualEndH = it }, label = { Text("종료 시") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true)
-                            Text(":", color = TextSecondary)
+                            Text(":", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             OutlinedTextField(value = manualEndM, onValueChange = { manualEndM = it }, label = { Text("분") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true)
                             Spacer(modifier = Modifier.width(8.dp))
                             IconButton(onClick = { showEndTimePicker = true }) { Icon(Icons.Default.CalendarMonth, contentDescription = "종료 시간 선택", tint = Accent) }
@@ -359,6 +362,15 @@ fun MainScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("종료 및 저장")
                         }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(onClick = {
+                            onCancelTracking()
+                            showBottomSheet = false
+                        }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Default.Close, contentDescription = null, tint = Accent)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("측정 취소", color = Accent)
+                        }
                     }
                 }
 
@@ -387,7 +399,7 @@ fun MainScreen(
                             manualStartH = ""; manualStartM = ""; manualEndH = ""; manualEndM = ""; durationH = ""; durationM = ""; note = ""; showBottomSheet = false
                         }
                     }, colors = ButtonDefaults.buttonColors(containerColor = Accent), modifier = Modifier.fillMaxWidth()) {
-                        Text("저장", color = TextPrimary)
+                        Text("저장", color = MaterialTheme.colorScheme.onBackground)
                     }
                 }
             }
@@ -410,13 +422,30 @@ fun MainScreen(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                if (isTracking) {
+                    val bH = elapsedSeconds / 3600; val bM = (elapsedSeconds % 3600) / 60; val bS = elapsedSeconds % 60
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Accent.copy(alpha = 0.15f), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                            .clickable { showBottomSheet = true }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("⏱ 측정 중", color = Accent, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                        Text(text = String.format("%02d:%02d:%02d", bH, bM, bS), color = Accent, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                
                 val totalDayMinutes = entries.sumOf { it.minutes }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("기록된 항목", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     if (totalDayMinutes > 0) Text(text = "총 ${totalDayMinutes}분 (${totalDayMinutes / 60}시간 ${totalDayMinutes % 60}분)", color = Accent, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, placeholder = { Text("검색...", color = TextSecondary) }, modifier = Modifier.fillMaxWidth(), singleLine = true, textStyle = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, placeholder = { Text("검색...", color = MaterialTheme.colorScheme.onSurfaceVariant) }, modifier = Modifier.fillMaxWidth(), singleLine = true, textStyle = MaterialTheme.typography.bodySmall)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 val filteredEntries = remember(entries, searchQuery) {
@@ -432,13 +461,13 @@ fun MainScreen(
                     Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             if (searchQuery.isNotBlank()) {
-                                Text(text = "검색 결과가 없습니다", color = TextSecondary, style = MaterialTheme.typography.bodyMedium)
+                                Text(text = "검색 결과가 없습니다", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                             } else {
                                 Text("📝", style = MaterialTheme.typography.displaySmall)
                                 Spacer(modifier = Modifier.height(12.dp))
-                                Text(text = "아직 기록이 없습니다", color = TextPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                Text(text = "아직 기록이 없습니다", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text(text = "하단의 + 버튼을 눌러\n새로운 항목을 추가해보세요", color = TextSecondary, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                                Text(text = "하단의 + 버튼을 눌러\n새로운 항목을 추가해보세요", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
                             }
                         }
                     }

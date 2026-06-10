@@ -55,7 +55,7 @@ fun EntryCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = CardBackground
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
         Row(
@@ -80,14 +80,14 @@ fun EntryCard(
                 if (entry.startTime > 0 && entry.endTime > 0) {
                     Text(
                         text = "${timeFormat.format(Date(entry.startTime))} - ${timeFormat.format(Date(entry.endTime))}",
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
                 if (entry.note.isNotBlank()) {
                     Text(
                         text = entry.note,
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -95,7 +95,7 @@ fun EntryCard(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "${entry.minutes}분",
-                color = TextPrimary,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.width(4.dp))

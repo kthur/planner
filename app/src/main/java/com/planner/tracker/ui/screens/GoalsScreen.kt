@@ -51,9 +51,6 @@ import com.planner.tracker.ui.components.CategoryManageDialog
 import com.planner.tracker.ui.components.CategorySelector
 import com.planner.tracker.ui.components.DatePickerDialogScreen
 import com.planner.tracker.ui.theme.Accent
-import com.planner.tracker.ui.theme.CardBackground
-import com.planner.tracker.ui.theme.TextPrimary
-import com.planner.tracker.ui.theme.TextSecondary
 import com.planner.tracker.ui.theme.categoryColorFromHex
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -82,6 +79,7 @@ fun GoalsScreen(
     var targetMinutes by remember { mutableStateOf("") }
     var selectedCategory by remember(categories) { mutableStateOf(categories.firstOrNull()?.name ?: "") }
     var deadlineMillis by remember { mutableLongStateOf(0L) }
+    var deleteConfirmGoalId by remember { mutableStateOf<Long?>(null) }
 
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
 
@@ -120,7 +118,7 @@ fun GoalsScreen(
                 onClick = { openCreateDialog() },
                 containerColor = Accent
             ) {
-                Icon(Icons.Default.Add, contentDescription = "목표 추가", tint = TextPrimary)
+                Icon(Icons.Default.Add, contentDescription = "목표 추가", tint = MaterialTheme.colorScheme.onBackground)
             }
         }
     ) { padding ->
@@ -132,14 +130,14 @@ fun GoalsScreen(
         ) {
             Text(
                 text = "카테고리별 진행 상황과 세부 목표를 관리하세요.",
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(16.dp))
 
             if (goals.isEmpty()) {
                 Card(
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = CardBackground),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -152,14 +150,14 @@ fun GoalsScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = "목표가 없습니다",
-                            color = TextPrimary,
+                            color = MaterialTheme.colorScheme.onBackground,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleMedium
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "우측 하단 + 버튼으로\n카테고리별 목표를 추가해보세요",
-                            color = TextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center
                         )
@@ -179,7 +177,7 @@ fun GoalsScreen(
 
                     Card(
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = CardBackground),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -192,14 +190,14 @@ fun GoalsScreen(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     text = displayName,
-                                    color = if (goal.isCompleted) TextSecondary else color,
+                                    color = if (goal.isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else color,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 if (goal.description.isNotBlank()) {
                                     Text(
                                         text = "- ${goal.description}",
-                                        color = if (goal.isCompleted) TextSecondary else TextPrimary,
+                                        color = if (goal.isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground,
                                         style = MaterialTheme.typography.bodyMedium,
                                         modifier = Modifier.weight(1f)
                                     )
@@ -210,7 +208,7 @@ fun GoalsScreen(
                                     IconButton(onClick = { openEditDialog(goal) }, modifier = Modifier.size(32.dp)) {
                                         Icon(Icons.Default.Edit, contentDescription = "수정", tint = Accent, modifier = Modifier.size(20.dp))
                                     }
-                                    IconButton(onClick = { onDeleteGoal(goal.id) }, modifier = Modifier.size(32.dp)) {
+                                    IconButton(onClick = { deleteConfirmGoalId = goal.id }, modifier = Modifier.size(32.dp)) {
                                         Icon(Icons.Default.Delete, contentDescription = "삭제", tint = Accent, modifier = Modifier.size(20.dp))
                                     }
                                 }
@@ -229,7 +227,7 @@ fun GoalsScreen(
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "${currentMinutes}분 / ${targetMin}분 (${(pct * 100).toInt()}%)",
-                                    color = TextSecondary,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
@@ -238,7 +236,7 @@ fun GoalsScreen(
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "기한: ${dateFormat.format(Date(goal.deadline))}",
-                                    color = TextSecondary,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
@@ -282,7 +280,7 @@ fun GoalsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = if (deadlineMillis > 0) "기한: ${dateFormat.format(Date(deadlineMillis))}" else "기한 없음",
-                            color = if (deadlineMillis > 0) TextPrimary else TextSecondary,
+                            color = if (deadlineMillis > 0) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f)
                         )
                         IconButton(onClick = { showDeadlinePicker = true }) {
@@ -315,6 +313,16 @@ fun GoalsScreen(
                     Text("취소")
                 }
             }
+        )
+    }
+
+    deleteConfirmGoalId?.let { goalId ->
+        AlertDialog(
+            onDismissRequest = { deleteConfirmGoalId = null },
+            title = { Text("목표 삭제") },
+            text = { Text("이 목표를 정말 삭제하시겠습니까?") },
+            confirmButton = { TextButton(onClick = { onDeleteGoal(goalId); deleteConfirmGoalId = null }) { Text("삭제", color = Accent) } },
+            dismissButton = { TextButton(onClick = { deleteConfirmGoalId = null }) { Text("취소") } }
         )
     }
 

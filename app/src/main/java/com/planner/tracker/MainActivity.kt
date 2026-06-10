@@ -11,11 +11,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Flag
@@ -39,6 +43,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -52,6 +57,7 @@ import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.PlannerTheme
 import com.planner.tracker.viewmodel.PlannerViewModel
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -193,7 +199,24 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     when (selectedTab) {
                         0 -> {
                             val dateFormat = remember { SimpleDateFormat("yyyy년 M월 d일 (E)", Locale.KOREAN) }
-                            Text(text = dateFormat.format(Date(selectedDate)), style = MaterialTheme.typography.titleLarge)
+                            val cal = remember { Calendar.getInstance() }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = {
+                                    cal.timeInMillis = selectedDate
+                                    cal.add(Calendar.DAY_OF_MONTH, -1)
+                                    viewModel.setSelectedDate(cal.timeInMillis)
+                                }) { Icon(Icons.Default.ChevronLeft, contentDescription = "이전 날", tint = MaterialTheme.colorScheme.onBackground) }
+                                Text(
+                                    text = dateFormat.format(Date(selectedDate)),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.clickable { viewModel.setSelectedDate(System.currentTimeMillis()) }
+                                )
+                                IconButton(onClick = {
+                                    cal.timeInMillis = selectedDate
+                                    cal.add(Calendar.DAY_OF_MONTH, 1)
+                                    viewModel.setSelectedDate(cal.timeInMillis)
+                                }) { Icon(Icons.Default.ChevronRight, contentDescription = "다음 날", tint = MaterialTheme.colorScheme.onBackground) }
+                            }
                         }
                         1 -> Text("통계", style = MaterialTheme.typography.titleLarge)
                         2 -> Text("목표", style = MaterialTheme.typography.titleLarge)

@@ -116,16 +116,16 @@ fun StatsScreen(
             0 -> {
                 val cal = remember { Calendar.getInstance() }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.DAY_OF_MONTH, -1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronLeft, "이전 날", tint = TextPrimary) }
+                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.DAY_OF_MONTH, -1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronLeft, "이전 날", tint = MaterialTheme.colorScheme.onBackground) }
                     Text(text = SimpleDateFormat("yyyy년 M월 d일 (E)", Locale.KOREAN).format(Date(selectedDay)), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
-                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.DAY_OF_MONTH, 1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronRight, "다음 날", tint = TextPrimary) }
+                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.DAY_OF_MONTH, 1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronRight, "다음 날", tint = MaterialTheme.colorScheme.onBackground) }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }
             1 -> {
                 val cal = remember { Calendar.getInstance() }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.WEEK_OF_YEAR, -1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronLeft, "이전 주", tint = TextPrimary) }
+                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.WEEK_OF_YEAR, -1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronLeft, "이전 주", tint = MaterialTheme.colorScheme.onBackground) }
                     Text(
                         text = {
                             cal.timeInMillis = selectedDay
@@ -139,15 +139,15 @@ fun StatsScreen(
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
-                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.WEEK_OF_YEAR, 1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronRight, "다음 주", tint = TextPrimary) }
+                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.WEEK_OF_YEAR, 1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronRight, "다음 주", tint = MaterialTheme.colorScheme.onBackground) }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }
             2 -> {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                    IconButton(onClick = { month--; if (month < 1) { month = 12; year-- }; onMonthChange(year, month) }) { Icon(Icons.Default.ChevronLeft, "이전 달", tint = TextPrimary) }
+                    IconButton(onClick = { month--; if (month < 1) { month = 12; year-- }; onMonthChange(year, month) }) { Icon(Icons.Default.ChevronLeft, "이전 달", tint = MaterialTheme.colorScheme.onBackground) }
                     Text(text = "${year}년 ${month}월", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
-                    IconButton(onClick = { month++; if (month > 12) { month = 1; year++ }; onMonthChange(year, month) }) { Icon(Icons.Default.ChevronRight, "다음 달", tint = TextPrimary) }
+                    IconButton(onClick = { month++; if (month > 12) { month = 1; year++ }; onMonthChange(year, month) }) { Icon(Icons.Default.ChevronRight, "다음 달", tint = MaterialTheme.colorScheme.onBackground) }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 MonthCalendar(year = year, month = month, dailyCategoryMap = monthlyDailyCategoryMap, categoryMap = categoryMap, onDateClick = { millis -> selectedDay = millis; onDateSelected(millis) })
@@ -156,21 +156,21 @@ fun StatsScreen(
         }
 
         if (stats.isEmpty()) {
-            Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardBackground), modifier = Modifier.fillMaxWidth()) {
+            Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("📊", style = MaterialTheme.typography.displaySmall)
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(text = "통계 데이터가 없습니다", color = TextPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(text = "통계 데이터가 없습니다", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = "기록 탭에서 활동을 추가하면\n여기에 통계가 표시됩니다", color = TextSecondary, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                    Text(text = "기록 탭에서 활동을 추가하면\n여기에 통계가 표시됩니다", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
                 }
             }
         } else {
             val totalMinutes = stats.sumOf { it.total }
 
-            Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardBackground), modifier = Modifier.fillMaxWidth()) {
+            Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "총 ${totalMinutes}분 (${totalMinutes / 60}시간 ${totalMinutes % 60}분)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    Text(text = "총 ${totalMinutes}분 (${totalMinutes / 60}시간 ${totalMinutes % 60}분)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val strokeWidth = 40f
@@ -195,9 +195,9 @@ fun StatsScreen(
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(12.dp).clip(CircleShape).background(color))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = displayName, modifier = Modifier.width(80.dp), color = TextPrimary)
-                            Text(text = "${stat.total}분", modifier = Modifier.weight(1f), color = TextSecondary)
-                            Text(text = String.format("%.1f%%", pct), color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.width(60.dp), textAlign = TextAlign.End)
+                            Text(text = displayName, modifier = Modifier.width(80.dp), color = MaterialTheme.colorScheme.onBackground)
+                            Text(text = "${stat.total}분", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(text = String.format("%.1f%%", pct), color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, modifier = Modifier.width(60.dp), textAlign = TextAlign.End)
                         }
                     }
                 }
@@ -206,7 +206,7 @@ fun StatsScreen(
             if (selectedTab == 0 && dailyEntries.isNotEmpty()) {
                 var showClock by remember { mutableStateOf(false) }
                 Spacer(modifier = Modifier.height(16.dp))
-                Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardBackground), modifier = Modifier.fillMaxWidth()) {
+                Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Text(text = "상세 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -231,15 +231,15 @@ fun StatsScreen(
                                     Box(Modifier.size(10.dp).clip(CircleShape).background(color))
                                     Spacer(Modifier.width(8.dp))
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(text = displayName, color = TextPrimary, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
+                                        Text(text = displayName, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
                                         if (entry.startTime > 0 && entry.endTime > 0) {
-                                            Text(text = "${tf.format(Date(entry.startTime))} - ${tf.format(Date(entry.endTime))}", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                                            Text(text = "${tf.format(Date(entry.startTime))} - ${tf.format(Date(entry.endTime))}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                                         }
                                     }
-                                    Text(text = "${entry.minutes}분", color = TextPrimary, fontWeight = FontWeight.Bold)
+                                    Text(text = "${entry.minutes}분", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
                                     if (entry.note.isNotBlank()) {
                                         Spacer(Modifier.width(4.dp))
-                                        Text(text = entry.note, color = TextSecondary, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                                        Text(text = entry.note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, maxLines = 1)
                                     }
                                 }
                             }
@@ -252,7 +252,7 @@ fun StatsScreen(
             if (selectedTab == 1 && weeklyDailyCategoryStats.isNotEmpty()) {
                 val dayFormat = remember { SimpleDateFormat("E", Locale.KOREAN) }
                 val dailyTotals = weeklyDailyStats.associate { it.date to it.total }
-                Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardBackground), modifier = Modifier.fillMaxWidth()) {
+                Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(text = "일별 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(12.dp))
@@ -263,7 +263,7 @@ fun StatsScreen(
                             val dayTotal = dailyTotals[date] ?: catStats.sumOf { it.total }
                             val dayName = dayFormat.format(Date(date))
                             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(text = dayName, color = TextPrimary, modifier = Modifier.width(40.dp))
+                                Text(text = dayName, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.width(40.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Box(Modifier.weight(1f).height(24.dp).clip(RoundedCornerShape(4.dp)).background(Accent.copy(alpha = 0.12f))) {
                                     Row(Modifier.fillMaxSize()) {
@@ -275,13 +275,13 @@ fun StatsScreen(
                                                     .background(barColor),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                if (stat.total >= 15) Text("${stat.total}분", color = TextPrimary, fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Bold)
+                                                if (stat.total >= 15) Text("${stat.total}분", color = MaterialTheme.colorScheme.onBackground, fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Bold)
                                             }
                                         }
                                     }
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = "${dayTotal}분", color = TextSecondary, modifier = Modifier.width(50.dp), textAlign = TextAlign.End)
+                                Text(text = "${dayTotal}분", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(50.dp), textAlign = TextAlign.End)
                             }
                         }
                     }
@@ -305,9 +305,9 @@ private fun DailyClockView(
     val entriesWithTime = entries.filter { it.startTime > 0 && it.endTime > 0 }
     val cal = remember { Calendar.getInstance() }
 
-    Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = CardBackground), modifier = Modifier.fillMaxWidth()) {
+    Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = "12시간 시계", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text(text = "12시간 시계", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
             Spacer(modifier = Modifier.height(12.dp))
 
             Canvas(modifier = Modifier.size(260.dp)) {
@@ -376,12 +376,12 @@ private fun DailyClockView(
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(color))
                     Spacer(Modifier.width(6.dp))
-                    Text(text = displayName, color = TextPrimary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                    Text(text = "${sh}:${sm.toString().padStart(2, '0')}-${eh}:${em.toString().padStart(2, '0')}", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                    Text(text = displayName, color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    Text(text = "${sh}:${sm.toString().padStart(2, '0')}-${eh}:${em.toString().padStart(2, '0')}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
             }
             if (entriesWithTime.size > 6) {
-                Text(text = "...외 ${entriesWithTime.size - 6}개", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                Text(text = "...외 ${entriesWithTime.size - 6}개", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -402,11 +402,11 @@ private fun MonthCalendar(
     val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK) - 1
     val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
 
-    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardBackground), modifier = Modifier.fillMaxWidth()) {
+    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 dayNames.forEach { name ->
-                    Text(text = name, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                    Text(text = name, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -433,7 +433,7 @@ private fun MonthCalendar(
                                 modifier = Modifier.weight(1f).aspectRatio(1f).clip(CircleShape).clickable { onDateClick(dayMillis) },
                                 verticalArrangement = Arrangement.Center
                             ) {
-                                Text(text = currentDay.toString(), style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = if (categories != null) FontWeight.Bold else FontWeight.Normal)
+                                Text(text = currentDay.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground, fontWeight = if (categories != null) FontWeight.Bold else FontWeight.Normal)
                                 if (categories != null) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                         categories.forEach { catName ->
