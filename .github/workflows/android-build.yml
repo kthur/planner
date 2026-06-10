@@ -37,6 +37,15 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
+      - name: Upload to Firebase App Distribution
+        if: github.event_name != 'pull_request'
+        uses: wzieba/Firebase-App-Distribution@v4
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          token: ${{ secrets.FIREBASE_TOKEN }}
+          groups: testers
+          file: app/build/outputs/apk/debug/app-debug.apk
+
   release-build:
     runs-on: ubuntu-latest
     needs: build
