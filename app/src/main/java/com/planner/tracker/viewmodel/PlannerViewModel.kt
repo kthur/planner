@@ -1,11 +1,9 @@
 package com.planner.tracker.viewmodel
 
 import android.app.Application
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import androidx.core.app.NotificationCompat
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.planner.tracker.data.AppDatabase
@@ -72,6 +70,12 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     private val _alarmTriggered = MutableStateFlow(false)
     val alarmTriggered: StateFlow<Boolean> = _alarmTriggered
+
+    private val _restoredNote = MutableStateFlow("")
+    val restoredNote: StateFlow<String> = _restoredNote
+
+    private val _restoredCategories = MutableStateFlow<Set<String>>(emptySet())
+    val restoredCategories: StateFlow<Set<String>> = _restoredCategories
 
     private var _trackingStartedAt = 0L
     private var trackingJob: Job? = null
@@ -150,6 +154,41 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                 dayEntries.map { it.category }.distinct()
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+        // Load tracking state from SharedPreferences
+        val prefs = application.getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE)
+        val isTrackingRestore = prefs.getBoolean("is_tracking", false)
+        if (isTrackingRestore) {
+            val startElapsed = prefs.getLong("start_elapsed", 0L)
+            val targetSec = prefs.getInt("target_sec", 0)
+            val note = prefs.getString("note", "") ?: ""
+            val categoriesString = prefs.getString("categories", "") ?: ""
+            val categoriesSet = if (categoriesString.isEmpty()) emptySet() else categoriesString.split(",").toSet()
+            val timerMinutes = prefs.getString("timer_minutes", "") ?: ""
+
+            _trackingStartedAt = startElapsed
+            _isTracking.value = true
+            timerTargetSec = targetSec
+            _restoredNote.value = note
+            _restoredCategories.value = categoriesSet
+
+            val timerSec = timerMinutes.toIntOrNull() ?: 0
+            val hasTimer = timerSec > 0
+            trackingJob = viewModelScope.launch {
+                while (true) {
+                    val secs = (SystemClock.elapsedRealtime() - _trackingStartedAt) / 1000
+                    if (timerTargetSec > 0 && secs >= timerTargetSec) {
+                        _elapsedSeconds.value = timerTargetSec.toLong()
+                        if (!_alarmTriggered.value) {
+                            _alarmTriggered.value = true
+                        }
+                        break
+                    }
+                    _elapsedSeconds.value = secs
+                    delay(1000)
+                }
+            }
+        }
     }
 
     fun setSelectedDate(date: Long) {
@@ -202,31 +241,55 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun startTracking(timerMinutes: String) {
-        val now = System.currentTimeMillis()
+    fun startTracking(categories: Set<String>, categoryDisplays: String, note: String, timerMinutes: String) {
+        val now = SystemClock.elapsedRealtime()
         val timerSec = timerMinutes.toIntOrNull() ?: 0
         _trackingStartedAt = now
         _elapsedSeconds.value = 0
         _isTracking.value = true
         _alarmTriggered.value = false
         timerTargetSec = timerSec * 60
-        val hasTimer = timerSec > 0
-        updateTrackingNotification(0, hasTimer, timerSec)
+
+        _restoredNote.value = note
+        _restoredCategories.value = categories
+
+        val prefs = getApplication<Application>().getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putBoolean("is_tracking", true)
+            putLong("start_elapsed", now)
+            putInt("target_sec", timerTargetSec)
+            putString("timer_minutes", timerMinutes)
+            putString("note", note)
+            putString("categories", categories.joinToString(","))
+            putString("category_displays", categoryDisplays)
+        }.apply()
+
+        val ctx = getApplication<Application>()
+        val serviceIntent = Intent(ctx, com.planner.tracker.TrackerService::class.java).apply {
+            action = com.planner.tracker.TrackerService.ACTION_START
+            putExtra(com.planner.tracker.TrackerService.EXTRA_NOTE, note)
+            putExtra(com.planner.tracker.TrackerService.EXTRA_CATEGORIES, categories.joinToString(","))
+            putExtra(com.planner.tracker.TrackerService.EXTRA_CATEGORY_DISPLAYS, categoryDisplays)
+            putExtra(com.planner.tracker.TrackerService.EXTRA_TIMER_MINUTES, timerMinutes)
+        }
+        try {
+            ctx.startForegroundService(serviceIntent)
+        } catch (e: Exception) {
+            ctx.startService(serviceIntent)
+        }
+
         trackingJob?.cancel()
         trackingJob = viewModelScope.launch {
             while (true) {
-                val secs = (System.currentTimeMillis() - _trackingStartedAt) / 1000
+                val secs = (SystemClock.elapsedRealtime() - _trackingStartedAt) / 1000
                 if (timerTargetSec > 0 && secs >= timerTargetSec) {
                     _elapsedSeconds.value = timerTargetSec.toLong()
-                    updateTrackingNotification(timerTargetSec.toLong(), hasTimer, timerSec)
                     if (!_alarmTriggered.value) {
                         _alarmTriggered.value = true
-                        sendTimerNotification()
                     }
                     break
                 }
                 _elapsedSeconds.value = secs
-                updateTrackingNotification(secs, hasTimer, timerSec)
                 delay(1000)
             }
         }
@@ -235,16 +298,23 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
     fun stopTrackingAndSave(categories: Set<String>, note: String): Pair<Long, Long>? {
         trackingJob?.cancel()
         trackingJob = null
-        cancelTrackingNotification()
+        val ctx = getApplication<Application>()
+        val stopIntent = Intent(ctx, com.planner.tracker.TrackerService::class.java).apply {
+            action = com.planner.tracker.TrackerService.ACTION_STOP
+        }
+        ctx.startService(stopIntent)
+
         val now = System.currentTimeMillis()
-        val actualSeconds = (now - _trackingStartedAt) / 1000
+        val startWallClock = now - (SystemClock.elapsedRealtime() - _trackingStartedAt)
+        val actualSeconds = (SystemClock.elapsedRealtime() - _trackingStartedAt) / 1000
         val savedSeconds = if (timerTargetSec > 0) minOf(actualSeconds, timerTargetSec.toLong()) else actualSeconds
         val minutes = (savedSeconds / 60).toInt()
-        val endTimeValue = if (timerTargetSec > 0 && actualSeconds > timerTargetSec) _trackingStartedAt + timerTargetSec * 1000L else now
+        val endTimeValue = if (timerTargetSec > 0 && actualSeconds > timerTargetSec) startWallClock + timerTargetSec * 1000L else now
         _isTracking.value = false
         _alarmTriggered.value = false
+        clearTrackingPrefs()
         if (minutes > 0 && categories.isNotEmpty()) {
-            val dayRange = Repository.getDayRange(_trackingStartedAt)
+            val dayRange = Repository.getDayRange(startWallClock)
             viewModelScope.launch {
                 categories.forEach { category ->
                     val entry = Entry(
@@ -252,13 +322,13 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                         category = category,
                         minutes = minutes,
                         note = note,
-                        startTime = _trackingStartedAt,
+                        startTime = startWallClock,
                         endTime = endTimeValue
                     )
                     repository.insertEntry(entry)
                 }
             }
-            return Pair(_trackingStartedAt, endTimeValue)
+            return Pair(startWallClock, endTimeValue)
         }
         return null
     }
@@ -266,9 +336,44 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
     fun cancelTracking() {
         trackingJob?.cancel()
         trackingJob = null
-        cancelTrackingNotification()
+        val ctx = getApplication<Application>()
+        val stopIntent = Intent(ctx, com.planner.tracker.TrackerService::class.java).apply {
+            action = com.planner.tracker.TrackerService.ACTION_STOP
+        }
+        ctx.startService(stopIntent)
         _isTracking.value = false
         _alarmTriggered.value = false
+        clearTrackingPrefs()
+    }
+
+    fun updateTrackingNote(note: String) {
+        _restoredNote.value = note
+        val ctx = getApplication<Application>()
+        val prefs = ctx.getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("note", note).apply()
+        val intent = Intent(ctx, com.planner.tracker.TrackerService::class.java).apply {
+            action = com.planner.tracker.TrackerService.ACTION_UPDATE_NOTE
+            putExtra(com.planner.tracker.TrackerService.EXTRA_NOTE, note)
+        }
+        ctx.startService(intent)
+    }
+
+    fun updateTrackingCategories(categories: Set<String>, categoryDisplays: String) {
+        _restoredCategories.value = categories
+        val ctx = getApplication<Application>()
+        val intent = Intent(ctx, com.planner.tracker.TrackerService::class.java).apply {
+            action = com.planner.tracker.TrackerService.ACTION_UPDATE_CATEGORIES
+            putExtra(com.planner.tracker.TrackerService.EXTRA_CATEGORIES, categories.joinToString(","))
+            putExtra(com.planner.tracker.TrackerService.EXTRA_CATEGORY_DISPLAYS, categoryDisplays)
+        }
+        ctx.startService(intent)
+    }
+
+    private fun clearTrackingPrefs() {
+        val prefs = getApplication<Application>().getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE)
+        prefs.edit().clear().apply()
+        _restoredNote.value = ""
+        _restoredCategories.value = emptySet()
     }
 
     fun addCategory(name: String, displayName: String, colorHex: String) {
@@ -291,57 +396,6 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearAlarmTriggered() {
         _alarmTriggered.value = false
-    }
-
-    private fun updateTrackingNotification(seconds: Long, isTimer: Boolean, timerMinutes: Int) {
-        val ctx = getApplication<Application>()
-        val h = seconds / 3600; val m = (seconds % 3600) / 60; val s = seconds % 60
-        val timeStr = String.format("%02d:%02d:%02d", h, m, s)
-        val text = if (isTimer && timerMinutes > 0) {
-            val remaining = timerMinutes * 60 - seconds
-            if (remaining > 0) "남은 시간: ${remaining / 60}분 ${remaining % 60}초"
-            else "시간 초과!"
-        } else timeStr
-
-        val intent = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)?.apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            ctx, 0, intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val notification = NotificationCompat.Builder(ctx, "tracking_channel")
-            .setContentTitle("현재시간을 측정하고 있습니다")
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setOngoing(true)
-            .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
-
-        val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(1002, notification)
-    }
-
-    private fun cancelTrackingNotification() {
-        val ctx = getApplication<Application>()
-        val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.cancel(1002)
-    }
-
-    private fun sendTimerNotification() {
-        val ctx = getApplication<Application>()
-        val notification = NotificationCompat.Builder(ctx, "timer_alarm")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("타이머 완료")
-            .setContentText("설정한 시간이 되었습니다!")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .build()
-        val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(1001, notification)
     }
 
     fun exportDataAsJson(onResult: (String) -> Unit) {

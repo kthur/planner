@@ -136,6 +136,8 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
     val isTracking by viewModel.isTracking.collectAsState()
     val elapsedSeconds by viewModel.elapsedSeconds.collectAsState()
     val alarmTriggered by viewModel.alarmTriggered.collectAsState()
+    val restoredNote by viewModel.restoredNote.collectAsState()
+    val restoredCategories by viewModel.restoredCategories.collectAsState()
     val weeklyDailyCategoryStats by viewModel.weeklyDailyCategoryStats.collectAsState()
     val monthlyDailyCategoryMap by viewModel.monthlyDailyCategoryMap.collectAsState()
     val categories by viewModel.categories.collectAsState()
@@ -275,10 +277,14 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     isTracking = isTracking,
                     elapsedSeconds = elapsedSeconds,
                     alarmTriggered = alarmTriggered,
-                    onStartTracking = { viewModel.startTracking(it) },
+                    restoredNote = restoredNote,
+                    restoredCategories = restoredCategories,
+                    onStartTracking = { cats, displays, note, timerMinutes -> viewModel.startTracking(cats, displays, note, timerMinutes) },
                     onStopTrackingAndSave = { cats, note -> viewModel.stopTrackingAndSave(cats, note) },
                     onCancelTracking = { viewModel.cancelTracking() },
-                    onClearAlarm = { viewModel.clearAlarmTriggered() }
+                    onClearAlarm = { viewModel.clearAlarmTriggered() },
+                    onNoteChange = { viewModel.updateTrackingNote(it) },
+                    onCategoriesChange = { cats, displays -> viewModel.updateTrackingCategories(cats, displays) }
                 )
                 1 -> StatsScreen(
                     categories = categories,

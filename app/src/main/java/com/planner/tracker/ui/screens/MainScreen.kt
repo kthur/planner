@@ -69,15 +69,36 @@ fun MainScreen(
     isTracking: Boolean = false,
     elapsedSeconds: Long = 0,
     alarmTriggered: Boolean = false,
-    onStartTracking: (String) -> Unit = {},
+    restoredNote: String = "",
+    restoredCategories: Set<String> = emptySet(),
+    onStartTracking: (Set<String>, String, String, String) -> Unit = { _, _, _, _ -> },
     onStopTrackingAndSave: (Set<String>, String) -> Pair<Long, Long>? = { _, _ -> null },
     onCancelTracking: () -> Unit = {},
-    onClearAlarm: () -> Unit = {}
+    onClearAlarm: () -> Unit = {},
+    onNoteChange: (String) -> Unit = {},
+    onCategoriesChange: (Set<String>, String) -> Unit = { _, _ -> }
 ) {
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
     var selectedCategories by remember(categories) { mutableStateOf(categories.firstOrNull()?.name?.let { setOf(it) } ?: emptySet()) }
     var note by remember { mutableStateOf("") }
+
+    val categoryInfoMap = remember(categories) { categories.associateBy { it.name } }
+val categoryDisplayStr = remember(selectedCategories, categoryInfoMap) {
+    selectedCategories.mapNotNull { categoryInfoMap[it]?.displayName }.joinToString(", ")
+}
+
+    LaunchedEffect(restoredCategories) {
+        if (restoredCategories.isNotEmpty()) {
+            selectedCategories = restoredCategories
+        }
+    }
+
+    LaunchedEffect(restoredNote) {
+        if (restoredNote.isNotEmpty()) {
+            note = restoredNote
+        }
+    }
     var startTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var endTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var durationH by remember { mutableStateOf("") }
@@ -298,7 +319,7 @@ fun MainScreen(
         )
     }
 
-    val categoryInfoMap = remember(categories) { categories.associateBy { it.name } }
+
 
     deleteConfirmEntry?.let { entry ->
         val catDisplay = categoryInfoMap[entry.category]?.displayName ?: entry.category
@@ -514,7 +535,7 @@ fun MainScreen(
                             cal.set(Calendar.SECOND, 0)
                             cal.set(Calendar.MILLISECOND, 0)
                             startTime = cal.timeInMillis
-                            onStartTracking(timerMinutes)
+                            onStartTracking(selectedCategories, categoryDisplayStr, note, timerMinutes)
                         }, colors = ButtonDefaults.buttonColors(containerColor = Accent), modifier = Modifier.fillMaxWidth()) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(modifier = Modifier.width(4.dp))
