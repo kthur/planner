@@ -153,11 +153,10 @@ fun MainScreen(
 
     LaunchedEffect(selectedCategory, categoryInfoMap) {
         val catType = categoryInfoMap[selectedCategory]?.entryType ?: "DURATION"
-        inputMode = true
         when (catType) {
-            "COUNT" -> directInputSubMode = 3
-            "DURATION" -> directInputSubMode = 0
-            "BOTH" -> directInputSubMode = 0  // 기본값, 사용자가 선택 가능
+            "COUNT" -> { inputMode = false; directInputSubMode = 3 }
+            "DURATION" -> { inputMode = true; directInputSubMode = 0 }
+            "BOTH" -> { inputMode = true; directInputSubMode = 0 }
         }
     }
 
