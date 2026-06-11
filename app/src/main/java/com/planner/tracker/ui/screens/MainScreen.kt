@@ -70,13 +70,13 @@ fun MainScreen(
     elapsedSeconds: Long = 0,
     alarmTriggered: Boolean = false,
     onStartTracking: (String) -> Unit = {},
-    onStopTrackingAndSave: (String, String) -> Pair<Long, Long>? = { _, _ -> null },
+    onStopTrackingAndSave: (Set<String>, String) -> Pair<Long, Long>? = { _, _ -> null },
     onCancelTracking: () -> Unit = {},
     onClearAlarm: () -> Unit = {}
 ) {
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
-    var selectedCategory by remember(categories) { mutableStateOf(categories.firstOrNull()?.name ?: "") }
+    var selectedCategories by remember(categories) { mutableStateOf(categories.firstOrNull()?.name?.let { setOf(it) } ?: emptySet()) }
     var note by remember { mutableStateOf("") }
     var startTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var endTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -358,7 +358,7 @@ fun MainScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         onClick = {
-                            val timestamps = onStopTrackingAndSave(selectedCategory, note)
+                            val timestamps = onStopTrackingAndSave(selectedCategories, note)
                             if (timestamps != null) { note = "" }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Accent),
@@ -379,7 +379,7 @@ fun MainScreen(
                     }
                 } else {
                     // 기록 추가 입력 패널
-                    CategorySelector(categories = categories, selected = selectedCategory, onSelect = { selectedCategory = it })
+                    CategorySelector(categories = categories, selected = selectedCategories, onSelectChange = { selectedCategories = it })
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -468,18 +468,28 @@ fun MainScreen(
                         OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("메모 (선택사항)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(onClick = {
-                            if (directInputSubMode == 2) {
-                                onAddEntry(selectedCategory, 0, note, eventTime, 0L, "EVENT")
-                                note = ""
-                            } else {
-                                val mins = calcMinutesFromTimestamps()
-                                if (mins > 0) {
-                                    if (directInputSubMode == 0) {
-                                        onAddEntry(selectedCategory, mins, note, 0L, 0L, "DURATION")
+                            if (selectedCategories.isNotEmpty()) {
+                                selectedCategories.forEach { cat ->
+                                    if (directInputSubMode == 2) {
+                                        onAddEntry(cat, 0, note, eventTime, 0L, "EVENT")
                                     } else {
-                                        onAddEntry(selectedCategory, mins, note, startTime, endTime, "DURATION")
+                                        val mins = calcMinutesFromTimestamps()
+                                        if (mins > 0) {
+                                            if (directInputSubMode == 0) {
+                                                onAddEntry(cat, mins, note, 0L, 0L, "DURATION")
+                                            } else {
+                                                onAddEntry(cat, mins, note, startTime, endTime, "DURATION")
+                                            }
+                                        }
                                     }
-                                    durationH = ""; durationM = ""; note = ""
+                                }
+                                if (directInputSubMode == 2) {
+                                    note = ""
+                                } else {
+                                    val mins = calcMinutesFromTimestamps()
+                                    if (mins > 0) {
+                                        durationH = ""; durationM = ""; note = ""
+                                    }
                                 }
                             }
                         }, colors = ButtonDefaults.buttonColors(containerColor = Accent), modifier = Modifier.fillMaxWidth()) {

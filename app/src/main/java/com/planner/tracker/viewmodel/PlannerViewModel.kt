@@ -232,7 +232,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun stopTrackingAndSave(category: String, note: String): Pair<Long, Long>? {
+    fun stopTrackingAndSave(categories: Set<String>, note: String): Pair<Long, Long>? {
         trackingJob?.cancel()
         trackingJob = null
         cancelTrackingNotification()
@@ -243,17 +243,21 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         val endTimeValue = if (timerTargetSec > 0 && actualSeconds > timerTargetSec) _trackingStartedAt + timerTargetSec * 1000L else now
         _isTracking.value = false
         _alarmTriggered.value = false
-        if (minutes > 0) {
+        if (minutes > 0 && categories.isNotEmpty()) {
             val dayRange = Repository.getDayRange(_trackingStartedAt)
-            val entry = Entry(
-                date = dayRange.first,
-                category = category,
-                minutes = minutes,
-                note = note,
-                startTime = _trackingStartedAt,
-                endTime = endTimeValue
-            )
-            viewModelScope.launch { repository.insertEntry(entry) }
+            viewModelScope.launch {
+                categories.forEach { category ->
+                    val entry = Entry(
+                        date = dayRange.first,
+                        category = category,
+                        minutes = minutes,
+                        note = note,
+                        startTime = _trackingStartedAt,
+                        endTime = endTimeValue
+                    )
+                    repository.insertEntry(entry)
+                }
+            }
             return Pair(_trackingStartedAt, endTimeValue)
         }
         return null

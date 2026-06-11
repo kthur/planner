@@ -276,7 +276,7 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     elapsedSeconds = elapsedSeconds,
                     alarmTriggered = alarmTriggered,
                     onStartTracking = { viewModel.startTracking(it) },
-                    onStopTrackingAndSave = { cat, note -> viewModel.stopTrackingAndSave(cat, note) },
+                    onStopTrackingAndSave = { cats, note -> viewModel.stopTrackingAndSave(cats, note) },
                     onCancelTracking = { viewModel.cancelTracking() },
                     onClearAlarm = { viewModel.clearAlarmTriggered() }
                 )
