@@ -200,7 +200,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         _currentMonth.value = month
     }
 
-    fun addEntry(category: String, minutes: Int, note: String, startTime: Long = 0, endTime: Long = 0, entryType: String = "DURATION") {
+    fun addEntry(category: String, minutes: Int, note: String, startTime: Long = 0, endTime: Long = 0, entryType: String = "DURATION", count: Int = 0) {
         viewModelScope.launch {
             val dayRange = Repository.getDayRange(if (startTime > 0) startTime else _selectedDate.value)
             repository.insertEntry(
@@ -211,7 +211,8 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                     note = note,
                     startTime = startTime,
                     endTime = endTime,
-                    entryType = entryType
+                    entryType = entryType,
+                    count = count
                 )
             )
         }

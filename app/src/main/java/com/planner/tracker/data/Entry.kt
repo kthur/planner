@@ -9,11 +9,12 @@ data class Entry(
     val id: Long = 0,
     val date: Long,
     val category: String,
-    val minutes: Int,
+    val minutes: Int = 0,
     val note: String = "",
     val startTime: Long = 0,
     val endTime: Long = 0,
-    val entryType: String = "DURATION"
+    val entryType: String = "DURATION",
+    val count: Int = 0
 )
 
 data class DailyCategoryStat(
