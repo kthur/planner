@@ -9,5 +9,6 @@ data class CategoryEntity(
     val name: String,
     val displayName: String,
     val colorHex: String,
-    val isDefault: Boolean = false
+    val isDefault: Boolean = false,
+    val entryType: String = "DURATION"
 )

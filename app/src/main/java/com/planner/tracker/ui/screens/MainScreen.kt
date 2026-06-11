@@ -151,6 +151,16 @@ fun MainScreen(
         if (alarmTriggered) showAlarmDialog = true
     }
 
+    LaunchedEffect(selectedCategory, categoryInfoMap) {
+        val catType = categoryInfoMap[selectedCategory]?.entryType ?: "DURATION"
+        inputMode = true
+        when (catType) {
+            "COUNT" -> directInputSubMode = 3
+            "DURATION" -> directInputSubMode = 0
+            "BOTH" -> directInputSubMode = 0  // 기본값, 사용자가 선택 가능
+        }
+    }
+
     fun calcMinutesFromTimestamps(): Int {
         if (inputMode && directInputSubMode == 0) {
             val dh = durationH.toIntOrNull() ?: 0

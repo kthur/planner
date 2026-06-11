@@ -2,8 +2,6 @@ package com.planner.tracker.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,14 +13,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.AddCircleOutline
 
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -71,13 +74,14 @@ private val presets = listOf(
 fun CategoryManageDialog(
     categories: List<CategoryEntity>,
     onDismiss: () -> Unit,
-    onAdd: (String, String) -> Unit,
-    onUpdate: (String, String, String) -> Unit,
+    onAdd: (String, String, String) -> Unit,
+    onUpdate: (String, String, String, String) -> Unit,
     onDelete: (String) -> Unit
 ) {
     var editTarget by remember { mutableStateOf<CategoryEntity?>(null) }
     var editDisplay by remember { mutableStateOf("") }
     var editColor by remember { mutableStateOf(presetColors.first()) }
+    var editEntryType by remember { mutableStateOf("DURATION") }
     var isAdding by remember { mutableStateOf(false) }
 
     fun startAdd() {
@@ -85,6 +89,7 @@ fun CategoryManageDialog(
         editTarget = null
         editDisplay = ""
         editColor = presetColors.first()
+        editEntryType = "DURATION"
     }
 
     fun startEdit(cat: CategoryEntity) {
@@ -92,6 +97,7 @@ fun CategoryManageDialog(
         editTarget = cat
         editDisplay = cat.displayName
         editColor = cat.colorHex
+        editEntryType = cat.entryType
     }
 
     AlertDialog(
@@ -114,6 +120,20 @@ fun CategoryManageDialog(
                             Box(Modifier.size(10.dp).clip(CircleShape).background(color))
                             Spacer(Modifier.size(8.dp))
                             Text(text = cat.displayName, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onBackground)
+                            Spacer(Modifier.size(6.dp))
+                            val typeBadge = when (cat.entryType) {
+                                "COUNT" -> "#회"
+                                "BOTH" -> "⏱/#"
+                                else -> "⏱"
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(color.copy(alpha = 0.15f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(text = typeBadge, color = color, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            }
                             if (!isDefault) {
                                 IconButton(onClick = { startEdit(cat) }, modifier = Modifier.size(32.dp)) {
                                     Icon(Icons.Default.Edit, contentDescription = "수정", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
@@ -201,7 +221,29 @@ fun CategoryManageDialog(
                             }
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(12.dp))
+                    Text("기록 방식", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(4.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("DURATION" to "⏱ 시간 기록", "COUNT" to "# 회 기록", "BOTH" to "⏱/# 둘 다").forEach { (type, label) ->
+                            val isSelected = editEntryType == type
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable { editEntryType = type }
+                                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = { editTarget = null; isAdding = false }) {
                             Text("취소")
@@ -209,8 +251,8 @@ fun CategoryManageDialog(
                         TextButton(
                             onClick = {
                                 if (editDisplay.isNotBlank()) {
-                                    if (isAdding) onAdd(editDisplay, editColor)
-                                    else editTarget?.let { onUpdate(it.name, editDisplay, editColor) }
+                                    if (isAdding) onAdd(editDisplay, editColor, editEntryType)
+                                    else editTarget?.let { onUpdate(it.name, editDisplay, editColor, editEntryType) }
                                     editTarget = null; isAdding = false
                                 }
                             }

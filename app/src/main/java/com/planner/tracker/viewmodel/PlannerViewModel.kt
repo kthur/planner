@@ -377,15 +377,15 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         _restoredCategories.value = emptySet()
     }
 
-    fun addCategory(name: String, displayName: String, colorHex: String) {
+    fun addCategory(name: String, displayName: String, colorHex: String, entryType: String = "DURATION") {
         viewModelScope.launch {
-            repository.upsertCategory(CategoryEntity(name = name, displayName = displayName, colorHex = colorHex))
+            repository.upsertCategory(CategoryEntity(name = name, displayName = displayName, colorHex = colorHex, entryType = entryType))
         }
     }
 
-    fun updateCategory(name: String, displayName: String, colorHex: String) {
+    fun updateCategory(name: String, displayName: String, colorHex: String, entryType: String = "DURATION") {
         viewModelScope.launch {
-            repository.upsertCategory(CategoryEntity(name = name, displayName = displayName, colorHex = colorHex))
+            repository.upsertCategory(CategoryEntity(name = name, displayName = displayName, colorHex = colorHex, entryType = entryType))
         }
     }
 
