@@ -37,20 +37,12 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      - name: Install Base64 Utility
-        if: github.event_name != 'pull_request'
-        run: sudo apt-get update && sudo apt-get install -y coreutils
-
-      - name: Decode Service Account Key
-        if: github.event_name != 'pull_request'
-        run: echo "${{ secrets.CREDENTIAL_FILE_CONTENT }}" | base64 -di > firebase-key.json
-
       - name: Upload to Firebase App Distribution
         if: github.event_name != 'pull_request'
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
-          serviceCredentialsFile: firebase-key.json
+          serviceCredentialsFileContent: ${{ secrets.CREDENTIAL_FILE_CONTENT }}
           groups: testers
           file: app/build/outputs/apk/debug/app-debug.apk
 
