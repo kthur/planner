@@ -132,7 +132,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         categoryProgress = goals.combine(monthlyStats) { goals, stats ->
-            val statMap = stats.associate { it.category to it.total }
+            val statMap = stats.associate { it.category to it.totalMinutes }
             goals.associate { goal ->
                 goal.category to ((statMap[goal.category] ?: 0) to goal.targetMinutes)
             }
@@ -143,7 +143,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             val entries = repository.getEntriesBetweenOnce(start, end)
             entries.groupBy { it.date }.flatMap { (day, dayEntries) ->
                 dayEntries.groupBy { it.category }.map { (cat, catEntries) ->
-                    DailyCategoryStat(day, cat, catEntries.sumOf { it.minutes })
+                    DailyCategoryStat(day, cat, catEntries.sumOf { it.minutes }, catEntries.sumOf { it.count })
                 }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

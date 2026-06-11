@@ -27,10 +27,10 @@ interface EntryDao {
     @Query("SELECT * FROM entries WHERE date >= :start AND date <= :end")
     suspend fun getEntriesBetweenOnce(start: Long, end: Long): List<Entry>
 
-    @Query("SELECT category, SUM(minutes) as total FROM entries WHERE date >= :start AND date <= :end GROUP BY category")
+    @Query("SELECT category, SUM(minutes) as totalMinutes, SUM(count) as totalCount FROM entries WHERE date >= :start AND date <= :end GROUP BY category")
     fun getStatsInRange(start: Long, end: Long): Flow<List<CategoryStat>>
 
-    @Query("SELECT date, SUM(minutes) as total FROM entries WHERE date >= :start AND date <= :end GROUP BY date ORDER BY date ASC")
+    @Query("SELECT date, SUM(minutes) as totalMinutes, SUM(count) as totalCount FROM entries WHERE date >= :start AND date <= :end GROUP BY date ORDER BY date ASC")
     fun getDailyStatsInRange(start: Long, end: Long): Flow<List<DailyStat>>
 
     @Query("SELECT SUM(minutes) FROM entries WHERE date >= :start AND date <= :end AND category = :categoryName")
@@ -42,10 +42,12 @@ interface EntryDao {
 
 data class CategoryStat(
     val category: String,
-    val total: Int
+    val totalMinutes: Int,
+    val totalCount: Int
 )
 
 data class DailyStat(
     val date: Long,
-    val total: Int
+    val totalMinutes: Int,
+    val totalCount: Int
 )

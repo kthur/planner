@@ -20,5 +20,6 @@ data class Entry(
 data class DailyCategoryStat(
     val date: Long,
     val category: String,
-    val total: Int
+    val totalMinutes: Int,
+    val totalCount: Int
 )

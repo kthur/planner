@@ -171,38 +171,55 @@ fun StatsScreen(
                 }
             }
         } else {
-            val totalMinutes = stats.sumOf { it.total }
+            val totalMinutes = stats.sumOf { it.totalMinutes }
+            val totalCount = stats.sumOf { it.totalCount }
 
             Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "총 ${totalMinutes}분 (${totalMinutes / 60}시간 ${totalMinutes % 60}분)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                    val summaryText = buildString {
+                        if (totalMinutes > 0) {
+                            append("총 ${totalMinutes}분 (${totalMinutes / 60}시간 ${totalMinutes % 60}분)")
+                            if (totalCount > 0) append(" / ")
+                        }
+                        if (totalCount > 0) append("${totalCount}회")
+                    }
+                    Text(text = summaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    val strokeWidth = 40f
-                    Canvas(modifier = Modifier.size(200.dp)) {
-                        val canvasSize = size
-                        val padding = strokeWidth / 2f
-                        var startAngle = -90f
-                        stats.forEach { stat ->
-                            val sweepAngle = (stat.total.toFloat() / totalMinutes) * 360f
-                            val catColor = categoryMap[stat.category]?.let { categoryColorFromHex(it.colorHex) } ?: Accent
-                            drawArc(color = catColor, startAngle = startAngle, sweepAngle = sweepAngle, useCenter = false, style = Stroke(width = strokeWidth, cap = StrokeCap.Butt), size = Size(canvasSize.width - strokeWidth, canvasSize.height - strokeWidth), topLeft = Offset(padding, padding))
-                            startAngle += sweepAngle
+                    if (totalMinutes > 0) {
+                        val strokeWidth = 40f
+                        Canvas(modifier = Modifier.size(200.dp)) {
+                            val canvasSize = size
+                            val padding = strokeWidth / 2f
+                            var startAngle = -90f
+                            stats.forEach { stat ->
+                                val sweepAngle = (stat.totalMinutes.toFloat() / totalMinutes) * 360f
+                                val catColor = categoryMap[stat.category]?.let { categoryColorFromHex(it.colorHex) } ?: Accent
+                                drawArc(color = catColor, startAngle = startAngle, sweepAngle = sweepAngle, useCenter = false, style = Stroke(width = strokeWidth, cap = StrokeCap.Butt), size = Size(canvasSize.width - strokeWidth, canvasSize.height - strokeWidth), topLeft = Offset(padding, padding))
+                                startAngle += sweepAngle
+                            }
                         }
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
 
                     stats.forEach { stat ->
                         val catInfo = categoryMap[stat.category]
                         val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
                         val displayName = catInfo?.displayName ?: stat.category
-                        val pct = if (totalMinutes > 0) (stat.total.toFloat() / totalMinutes * 100) else 0f
+                        val valueText = buildString {
+                            if (stat.totalMinutes > 0) append("${stat.totalMinutes}분")
+                            if (stat.totalMinutes > 0 && stat.totalCount > 0) append(" / ")
+                            if (stat.totalCount > 0) append("${stat.totalCount}회")
+                        }
+                        val pctText = if (totalMinutes > 0) String.format("%.1f%%", stat.totalMinutes.toFloat() / totalMinutes * 100) else ""
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(12.dp).clip(CircleShape).background(color))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(text = displayName, modifier = Modifier.width(80.dp), color = MaterialTheme.colorScheme.onBackground)
-                            Text(text = "${stat.total}분", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(text = String.format("%.1f%%", pct), color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, modifier = Modifier.width(60.dp), textAlign = TextAlign.End)
+                            Text(text = valueText, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (pctText.isNotEmpty()) {
+                                Text(text = pctText, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, modifier = Modifier.width(60.dp), textAlign = TextAlign.End)
+                            }
                         }
                     }
                 }
@@ -219,6 +236,7 @@ fun StatsScreen(
                             val catInfo = categoryMap[entry.category]
                             val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
                             val displayName = catInfo?.displayName ?: entry.category
+                            val isCountEntry = entry.count > 0
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -231,7 +249,11 @@ fun StatsScreen(
                                         Text(text = "${tf.format(Date(entry.startTime))} - ${tf.format(Date(entry.endTime))}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
-                                Text(text = "${entry.minutes}분", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                                if (isCountEntry) {
+                                    Text(text = "${entry.count}회", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                                } else {
+                                    Text(text = "${entry.minutes}분", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                                }
                                 if (entry.note.isNotBlank()) {
                                     Spacer(Modifier.width(4.dp))
                                     Text(text = entry.note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, maxLines = 1)
@@ -245,7 +267,7 @@ fun StatsScreen(
 
             if (selectedTab == 1 && weeklyDailyCategoryStats.isNotEmpty()) {
                 val dayFormat = remember { SimpleDateFormat("E", Locale.KOREAN) }
-                val dailyTotals = weeklyDailyStats.associate { it.date to it.total }
+                val dailyTotals = weeklyDailyStats.associate { it.date to (it.totalMinutes + it.totalCount) }
                 Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(text = "일별 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -254,28 +276,43 @@ fun StatsScreen(
                             stats.sortedBy { it.category }
                         }
                         grouped.forEach { (date, catStats) ->
-                            val dayTotal = dailyTotals[date] ?: catStats.sumOf { it.total }
+                            val dayTotal = dailyTotals[date] ?: catStats.sumOf { it.totalMinutes + it.totalCount }
                             val dayName = dayFormat.format(Date(date))
                             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(text = dayName, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.width(40.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Box(Modifier.weight(1f).height(24.dp).clip(RoundedCornerShape(4.dp)).background(Accent.copy(alpha = 0.12f))) {
-                                    Row(Modifier.fillMaxSize()) {
-                                        catStats.forEach { stat ->
-                                            val barCatInfo = categoryMap[stat.category]
-                                            val barColor = if (barCatInfo != null) categoryColorFromHex(barCatInfo.colorHex) else Accent
-                                            Box(
-                                                Modifier.fillMaxHeight().weight(stat.total.toFloat() / dayTotal)
-                                                    .background(barColor),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                if (stat.total >= 15) Text("${stat.total}분", color = MaterialTheme.colorScheme.onBackground, fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Bold)
+                                    if (dayTotal > 0) {
+                                        Row(Modifier.fillMaxSize()) {
+                                            catStats.forEach { stat ->
+                                                val barCatInfo = categoryMap[stat.category]
+                                                val barColor = if (barCatInfo != null) categoryColorFromHex(barCatInfo.colorHex) else Accent
+                                                val barValue = stat.totalMinutes + stat.totalCount
+                                                Box(
+                                                    Modifier.fillMaxHeight().weight(barValue.toFloat() / dayTotal)
+                                                        .background(barColor),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    val barLabel = buildString {
+                                                        if (stat.totalMinutes >= 15) append("${stat.totalMinutes}분")
+                                                        if (stat.totalMinutes >= 15 && stat.totalCount > 0) append(" ")
+                                                        if (stat.totalCount >= 5) append("${stat.totalCount}회")
+                                                    }
+                                                    if (barLabel.isNotEmpty()) Text(barLabel, color = MaterialTheme.colorScheme.onBackground, fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Bold)
+                                                }
                                             }
                                         }
                                     }
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = "${dayTotal}분", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(50.dp), textAlign = TextAlign.End)
+                                val dayTotalText = buildString {
+                                    val dayTotalMin = catStats.sumOf { it.totalMinutes }
+                                    val dayTotalCount = catStats.sumOf { it.totalCount }
+                                    if (dayTotalMin > 0) append("${dayTotalMin}분")
+                                    if (dayTotalMin > 0 && dayTotalCount > 0) append(" ")
+                                    if (dayTotalCount > 0) append("${dayTotalCount}회")
+                                }
+                                Text(text = dayTotalText, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(60.dp), textAlign = TextAlign.End)
                             }
                         }
                     }

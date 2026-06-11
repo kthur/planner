@@ -474,8 +474,6 @@ fun MainScreen(
                                     Icon(Icons.Default.Add, "증가", tint = Accent)
                                 }
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            OutlinedTextField(value = countValue, onValueChange = { countValue = it.filter { c -> c.isDigit() } }, label = { Text("횟수 직접 입력") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center))
                         } else if (directInputSubMode == 1) {
                             val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
                             Row(
