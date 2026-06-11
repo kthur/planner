@@ -332,7 +332,13 @@ fun MainScreen(
             Column(modifier = Modifier.padding(16.dp)) {
                 if (isTracking) {
                     // 측정 중 대시보드
-                    val bH = elapsedSeconds / 3600; val bM = (elapsedSeconds % 3600) / 60; val bS = elapsedSeconds % 60
+                    val displaySeconds = if (timerMinutes.toIntOrNull() ?: 0 > 0) {
+                        val totalSecs = (timerMinutes.toIntOrNull() ?: 0) * 60
+                        maxOf(0L, totalSecs - elapsedSeconds)
+                    } else {
+                        elapsedSeconds
+                    }
+                    val bH = displaySeconds / 3600; val bM = (displaySeconds % 3600) / 60; val bS = displaySeconds % 60
                     Text(text = "⏱ 측정 중", color = Accent, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(

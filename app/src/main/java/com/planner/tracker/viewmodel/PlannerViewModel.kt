@@ -216,12 +216,17 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         trackingJob = viewModelScope.launch {
             while (true) {
                 val secs = (System.currentTimeMillis() - _trackingStartedAt) / 1000
+                if (timerTargetSec > 0 && secs >= timerTargetSec) {
+                    _elapsedSeconds.value = timerTargetSec.toLong()
+                    updateTrackingNotification(timerTargetSec.toLong(), hasTimer, timerSec)
+                    if (!_alarmTriggered.value) {
+                        _alarmTriggered.value = true
+                        sendTimerNotification()
+                    }
+                    break
+                }
                 _elapsedSeconds.value = secs
                 updateTrackingNotification(secs, hasTimer, timerSec)
-                if (timerTargetSec > 0 && secs >= timerTargetSec && !_alarmTriggered.value) {
-                    _alarmTriggered.value = true
-                    sendTimerNotification()
-                }
                 delay(1000)
             }
         }
@@ -232,7 +237,10 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         trackingJob = null
         cancelTrackingNotification()
         val now = System.currentTimeMillis()
-        val minutes = ((now - _trackingStartedAt) / 60000).toInt()
+        val actualSeconds = (now - _trackingStartedAt) / 1000
+        val savedSeconds = if (timerTargetSec > 0) minOf(actualSeconds, timerTargetSec.toLong()) else actualSeconds
+        val minutes = (savedSeconds / 60).toInt()
+        val endTimeValue = if (timerTargetSec > 0 && actualSeconds > timerTargetSec) _trackingStartedAt + timerTargetSec * 1000L else now
         _isTracking.value = false
         _alarmTriggered.value = false
         if (minutes > 0) {
@@ -243,10 +251,10 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                 minutes = minutes,
                 note = note,
                 startTime = _trackingStartedAt,
-                endTime = now
+                endTime = endTimeValue
             )
             viewModelScope.launch { repository.insertEntry(entry) }
-            return Pair(_trackingStartedAt, now)
+            return Pair(_trackingStartedAt, endTimeValue)
         }
         return null
     }
