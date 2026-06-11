@@ -1,6 +1,8 @@
 package com.planner.tracker.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -226,7 +228,7 @@ fun MainScreen(
             onDismissRequest = { editingEntry = null },
             title = { Text("항목 수정") },
             text = {
-                Column {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     CategorySelector(categories = categories, selected = editCat.value, onSelect = { editCat.value = it })
                     Spacer(modifier = Modifier.height(8.dp))
 

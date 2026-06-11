@@ -1,5 +1,7 @@
 package com.planner.tracker.ui.screens
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -249,7 +251,7 @@ fun GoalsScreen(
             onDismissRequest = { showDialog = false },
             title = { Text(if (editingGoal != null) "목표 수정" else "새 목표") },
             text = {
-                Column {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     CategorySelector(
                         categories = categories,
                         selected = selectedCategory,

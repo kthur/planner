@@ -2,6 +2,8 @@ package com.planner.tracker.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -96,7 +98,7 @@ fun CategoryManageDialog(
         onDismissRequest = onDismiss,
         title = { Text("카테고리 관리") },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 categories.forEach { cat ->
                     val isDefault = cat.isDefault
                     val color = categoryColorFromHex(cat.colorHex)
