@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +59,7 @@ import com.planner.tracker.ui.screens.MainScreen
 import com.planner.tracker.ui.screens.StatsScreen
 import com.planner.tracker.ui.components.CategoryManageDialog
 import com.planner.tracker.ui.components.DatePickerDialogScreen
+import com.planner.tracker.ui.components.CalendarSettingsDialog
 import com.planner.tracker.ui.components.EntryEditDialog
 import com.planner.tracker.ui.components.EntryDeleteConfirmDialog
 import com.planner.tracker.ui.theme.Accent
@@ -192,10 +194,17 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
 
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     var showCategoryManageDialog by rememberSaveable { mutableStateOf(false) }
+    var showCalendarSettingsDialog by rememberSaveable { mutableStateOf(false) }
 
     var selectedStatsEntry by remember { mutableStateOf<Entry?>(null) }
     var showStatsEditDialog by remember { mutableStateOf(false) }
     var showStatsDeleteConfirm by remember { mutableStateOf(false) }
+
+    if (showCalendarSettingsDialog) {
+        CalendarSettingsDialog(
+            onDismiss = { showCalendarSettingsDialog = false }
+        )
+    }
 
     LaunchedEffect(selectedDate) {
         selectedStatsEntry = null
@@ -285,6 +294,9 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                         0 -> {
                             IconButton(onClick = { showDatePicker = true }) {
                                 Icon(Icons.Default.CalendarMonth, contentDescription = "날짜 선택", tint = Accent)
+                            }
+                            IconButton(onClick = { showCalendarSettingsDialog = true }) {
+                                Icon(Icons.Default.Settings, contentDescription = "캘린더 연동 설정", tint = Accent)
                             }
                         }
                         1 -> {
