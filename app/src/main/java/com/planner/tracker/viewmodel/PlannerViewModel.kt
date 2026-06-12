@@ -14,6 +14,7 @@ import com.planner.tracker.data.DailyStat
 import com.planner.tracker.data.Entry
 import com.planner.tracker.data.Goal
 import com.planner.tracker.data.Repository
+import com.planner.tracker.data.CalendarSyncManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -203,30 +204,50 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
     fun addEntry(category: String, minutes: Int, note: String, startTime: Long = 0, endTime: Long = 0, entryType: String = "DURATION", count: Int = 0) {
         viewModelScope.launch {
             val dayRange = Repository.getDayRange(if (startTime > 0) startTime else _selectedDate.value)
-            repository.insertEntry(
-                Entry(
-                    date = dayRange.first,
-                    category = category,
-                    minutes = minutes,
-                    note = note,
-                    startTime = startTime,
-                    endTime = endTime,
-                    entryType = entryType,
-                    count = count
-                )
+            val catInfo = repository.getCategoryByName(category)
+            val displayName = catInfo?.displayName ?: category
+
+            val tempEntry = Entry(
+                date = dayRange.first,
+                category = category,
+                minutes = minutes,
+                note = note,
+                startTime = startTime,
+                endTime = endTime,
+                entryType = entryType,
+                count = count
             )
+
+            val eventId = CalendarSyncManager.addEvent(getApplication(), tempEntry, displayName)
+            repository.insertEntry(tempEntry.copy(calendarEventId = eventId))
         }
     }
 
     fun deleteEntry(entry: Entry) {
         viewModelScope.launch {
+            if (entry.calendarEventId != null) {
+                CalendarSyncManager.deleteEvent(getApplication(), entry.calendarEventId)
+            }
             repository.deleteEntry(entry)
         }
     }
 
     fun updateEntry(entry: Entry) {
         viewModelScope.launch {
-            repository.updateEntry(entry)
+            val catInfo = repository.getCategoryByName(entry.category)
+            val displayName = catInfo?.displayName ?: entry.category
+
+            var newEventId = entry.calendarEventId
+            if (entry.calendarEventId != null) {
+                val success = CalendarSyncManager.updateEvent(getApplication(), entry.calendarEventId, entry, displayName)
+                if (!success) {
+                    newEventId = CalendarSyncManager.addEvent(getApplication(), entry, displayName)
+                }
+            } else {
+                newEventId = CalendarSyncManager.addEvent(getApplication(), entry, displayName)
+            }
+
+            repository.updateEntry(entry.copy(calendarEventId = newEventId))
         }
     }
 
@@ -318,7 +339,10 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             val dayRange = Repository.getDayRange(startWallClock)
             viewModelScope.launch {
                 categories.forEach { category ->
-                    val entry = Entry(
+                    val catInfo = repository.getCategoryByName(category)
+                    val displayName = catInfo?.displayName ?: category
+
+                    val tempEntry = Entry(
                         date = dayRange.first,
                         category = category,
                         minutes = minutes,
@@ -326,7 +350,9 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                         startTime = startWallClock,
                         endTime = endTimeValue
                     )
-                    repository.insertEntry(entry)
+
+                    val eventId = CalendarSyncManager.addEvent(getApplication(), tempEntry, displayName)
+                    repository.insertEntry(tempEntry.copy(calendarEventId = eventId))
                 }
             }
             return Pair(startWallClock, endTimeValue)

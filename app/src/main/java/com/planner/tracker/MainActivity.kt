@@ -73,6 +73,10 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { }
 
+    private val calendarPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -81,6 +85,12 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
+        calendarPermissionLauncher.launch(
+            arrayOf(
+                android.Manifest.permission.READ_CALENDAR,
+                android.Manifest.permission.WRITE_CALENDAR
+            )
+        )
 
         setContent {
             var isDarkMode by rememberSaveable { mutableStateOf(true) }

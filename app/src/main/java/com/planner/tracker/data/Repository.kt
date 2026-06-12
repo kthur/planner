@@ -51,6 +51,8 @@ class Repository(
 
     suspend fun getAllCategoriesOnce(): List<CategoryEntity> = categoryDao.getAllOnce()
 
+    suspend fun getCategoryByName(name: String): CategoryEntity? = categoryDao.getByName(name)
+
     suspend fun upsertCategory(category: CategoryEntity) = categoryDao.upsert(category)
 
     suspend fun deleteCategory(name: String) = categoryDao.delete(name)
