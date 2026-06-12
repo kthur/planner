@@ -63,6 +63,8 @@ import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.CardBackground
 import com.planner.tracker.ui.theme.TextPrimary
 import com.planner.tracker.ui.theme.TextSecondary
+import androidx.compose.material3.OutlinedTextField
+import com.planner.tracker.ui.components.EntryCard
 import com.planner.tracker.ui.theme.categoryColorFromHex
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -87,12 +89,14 @@ fun StatsScreen(
     onDateSelected: (Long) -> Unit,
     onNavigateToGoals: () -> Unit,
     selectedEntry: Entry? = null,
-    onSelectEntry: (Entry?) -> Unit = {}
+    onSelectEntry: (Entry?) -> Unit = {},
+    onUpdateEntry: (Entry) -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var year by remember(currentYear) { mutableIntStateOf(currentYear) }
     var month by remember(currentMonth) { mutableIntStateOf(currentMonth) }
     var selectedDay by remember(selectedDate) { mutableLongStateOf(selectedDate) }
+    var searchQuery by remember { mutableStateOf("") }
     val tabs = listOf("일간", "주간", "월간")
 
     val categoryMap = remember(categories) { categories.associateBy { it.name } }
@@ -234,65 +238,47 @@ fun StatsScreen(
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(text = "상세 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
-                        val tf = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
-                        dailyEntries.forEach { entry ->
-                            val catInfo = categoryMap[entry.category]
-                            val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
-                            val displayName = catInfo?.displayName ?: entry.category
-                            val isCountEntry = entry.count > 0
-                            val isSelected = selectedEntry?.id == entry.id
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("검색...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodySmall
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) Accent.copy(alpha = 0.15f) else androidx.compose.ui.graphics.Color.Transparent)
-                                    .clickable {
-                                        if (isSelected) {
-                                            onSelectEntry(null)
-                                        } else {
-                                            onSelectEntry(entry)
-                                        }
-                                    }
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (isSelected) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(18.dp)
-                                            .clip(CircleShape)
-                                            .background(Accent),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onPrimary,
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                    }
-                                    Spacer(Modifier.width(8.dp))
-                                } else {
-                                    Box(Modifier.size(10.dp).clip(CircleShape).background(color))
-                                    Spacer(Modifier.width(8.dp))
-                                }
+                        val filteredEntries = remember(dailyEntries, searchQuery) {
+                            if (searchQuery.isBlank()) dailyEntries
+                            else dailyEntries.filter { e ->
+                                val disp = categoryMap[e.category]?.displayName ?: e.category
+                                e.note.contains(searchQuery, ignoreCase = true) || disp.contains(searchQuery, ignoreCase = true)
+                            }
+                        }
 
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = displayName, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
-                                    if (entry.startTime > 0 && entry.endTime > 0) {
-                                        Text(text = "${tf.format(Date(entry.startTime))} - ${tf.format(Date(entry.endTime))}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
-                                if (isCountEntry) {
-                                    Text(text = "${entry.count}회", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-                                } else {
-                                    Text(text = "${entry.minutes}분", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-                                }
-                                if (entry.note.isNotBlank()) {
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(text = entry.note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                                }
+                        if (filteredEntries.isEmpty()) {
+                            Text(
+                                text = "검색 결과가 없습니다.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(vertical = 12.dp)
+                            )
+                        } else {
+                            filteredEntries.forEach { entry ->
+                                val isSelected = selectedEntry?.id == entry.id
+                                EntryCard(
+                                    entry = entry,
+                                    categoryInfo = categoryMap,
+                                    isSelected = isSelected,
+                                    onToggleSelect = {
+                                        if (isSelected) onSelectEntry(null) else onSelectEntry(entry)
+                                    },
+                                    onIncrement = if (entry.count > 0) {{ onUpdateEntry(entry.copy(count = entry.count + 1)) }} else null,
+                                    onDecrement = if (entry.count > 0 && entry.count > 1) {{ onUpdateEntry(entry.copy(count = entry.count - 1)) }} else null,
+                                    modifier = Modifier.clickable {
+                                        if (isSelected) onSelectEntry(null) else onSelectEntry(entry)
+                                    }.padding(vertical = 4.dp)
+                                )
                             }
                         }
                     }

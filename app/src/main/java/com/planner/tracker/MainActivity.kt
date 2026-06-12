@@ -350,9 +350,7 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                 0 -> MainScreen(
                     categories = categories,
                     selectedDate = selectedDate,
-                    entries = entries,
                     onAddEntry = { cat, min, note, s, e, type, count -> viewModel.addEntry(cat, min, note, s, e, type, count) },
-                    onUpdateEntry = { viewModel.updateEntry(it) },
                     isTracking = isTracking,
                     elapsedSeconds = elapsedSeconds,
                     alarmTriggered = alarmTriggered,
@@ -361,8 +359,7 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     onStartTracking = { cats, displays, note, timerMinutes -> viewModel.startTracking(cats, displays, note, timerMinutes) },
                     onStopTrackingAndSave = { cats, note -> viewModel.stopTrackingAndSave(cats, note) },
                     onCancelTracking = { viewModel.cancelTracking() },
-                    onClearAlarm = { viewModel.clearAlarmTriggered() },
-                    onBatchDelete = { entries -> entries.forEach { viewModel.deleteEntry(it) } }
+                    onClearAlarm = { viewModel.clearAlarmTriggered() }
                 )
                 1 -> StatsScreen(
                     categories = categories,
@@ -381,7 +378,8 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     onDateSelected = { viewModel.setSelectedDate(it) },
                     onNavigateToGoals = { selectedTab = 2 },
                     selectedEntry = selectedStatsEntry,
-                    onSelectEntry = { selectedStatsEntry = it }
+                    onSelectEntry = { selectedStatsEntry = it },
+                    onUpdateEntry = { viewModel.updateEntry(it) }
                 )
                 2 -> GoalsScreen(
                     categories = categories,

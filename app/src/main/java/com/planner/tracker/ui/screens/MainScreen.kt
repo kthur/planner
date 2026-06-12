@@ -59,7 +59,6 @@ import com.planner.tracker.data.CategoryEntity
 import com.planner.tracker.data.Entry
 import com.planner.tracker.ui.components.CategorySelector
 import com.planner.tracker.ui.components.TimePickerDialogScreen
-import com.planner.tracker.ui.components.EntryCard
 import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.categoryColorFromHex
 import java.text.SimpleDateFormat
@@ -72,9 +71,7 @@ import java.util.Locale
 fun MainScreen(
     categories: List<CategoryEntity>,
     selectedDate: Long,
-    entries: List<Entry>,
     onAddEntry: (String, Int, String, Long, Long, String, Int) -> Unit,
-    onUpdateEntry: (Entry) -> Unit,
     isTracking: Boolean = false,
     elapsedSeconds: Long = 0,
     alarmTriggered: Boolean = false,
@@ -83,8 +80,7 @@ fun MainScreen(
     onStartTracking: (Set<String>, String, String, String) -> Unit = { _, _, _, _ -> },
     onStopTrackingAndSave: (Set<String>, String) -> Pair<Long, Long>? = { _, _ -> null },
     onCancelTracking: () -> Unit = {},
-    onClearAlarm: () -> Unit = {},
-    onBatchDelete: (List<Entry>) -> Unit = {}
+    onClearAlarm: () -> Unit = {}
 ) {
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
@@ -117,10 +113,7 @@ fun MainScreen(
     var timerMinutes by remember { mutableStateOf("") }
     var showAlarmDialog by remember { mutableStateOf(false) }
     var inputMode by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
     var countValue by remember { mutableStateOf("1") }
-    var selectedForBatch by remember { mutableStateOf<Set<Long>>(emptySet()) }
-    var showBatchDeleteConfirm by remember { mutableStateOf(false) }
     val cal = remember { Calendar.getInstance() }
 
     LaunchedEffect(Unit) {
@@ -227,7 +220,7 @@ fun MainScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp)
+        modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())
     ) {
         // ── 상단 고정 입력/측정 패널 ──
         Card(
@@ -445,94 +438,6 @@ fun MainScreen(
                             Text("시작")
                         }
                     }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // ── 기록 목록 ──
-        val totalDayMinutes = entries.sumOf { it.minutes }
-        val totalDayCounts = entries.sumOf { it.count }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("기록된 항목", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (totalDayMinutes > 0) Text(text = "총 ${totalDayMinutes}분", color = Accent, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                if (totalDayCounts > 0) {
-                    if (totalDayMinutes > 0) Text(text = " / ", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-                    Text(text = "총 ${totalDayCounts}회", color = Accent, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, placeholder = { Text("검색...", color = MaterialTheme.colorScheme.onSurfaceVariant) }, modifier = Modifier.weight(1f), singleLine = true, textStyle = MaterialTheme.typography.bodySmall)
-            if (selectedForBatch.isNotEmpty()) {
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = { showBatchDeleteConfirm = true }) {
-                    Icon(Icons.Default.Delete, "선택 삭제", tint = Accent)
-                }
-                TextButton(onClick = { selectedForBatch = emptySet() }) {
-                    Text("해제", color = Accent)
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-
-        val filteredEntries = remember(entries, searchQuery) {
-            if (searchQuery.isBlank()) entries
-            else entries.filter { e ->
-                val disp = categoryInfoMap[e.category]?.displayName ?: e.category
-                e.note.contains(searchQuery, ignoreCase = true) || disp.contains(searchQuery, ignoreCase = true)
-            }
-        }
-
-        if (showBatchDeleteConfirm) {
-            AlertDialog(
-                onDismissRequest = { showBatchDeleteConfirm = false },
-                title = { Text("선택 항목 삭제") },
-                text = { Text("${selectedForBatch.size}개 항목을 삭제하시겠습니까?") },
-                confirmButton = { TextButton(onClick = {
-                    val toDelete = entries.filter { it.id in selectedForBatch }
-                    onBatchDelete(toDelete)
-                    selectedForBatch = emptySet()
-                    showBatchDeleteConfirm = false
-                }) { Text("삭제", color = Accent) } },
-                dismissButton = { TextButton(onClick = { showBatchDeleteConfirm = false }) { Text("취소") } }
-            )
-        }
-
-        if (filteredEntries.isEmpty()) {
-            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (searchQuery.isNotBlank()) {
-                        Text(text = "검색 결과가 없습니다", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-                    } else {
-                        Text("📝", style = MaterialTheme.typography.displaySmall)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(text = "아직 기록이 없습니다", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(text = "위의 패널에서\n새로운 항목을 추가해보세요", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-                    }
-                }
-            }
-        } else {
-            LazyColumn(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(filteredEntries, key = { it.id }) { entry ->
-                    EntryCard(
-                        entry = entry,
-                        categoryInfo = categoryInfoMap,
-                        onIncrement = if (entry.count > 0) {{ onUpdateEntry(entry.copy(count = entry.count + 1)) }} else null,
-                        onDecrement = if (entry.count > 0 && entry.count > 1) {{ onUpdateEntry(entry.copy(count = entry.count - 1)) }} else null,
-                        isSelected = entry.id in selectedForBatch,
-                        onToggleSelect = {
-                            selectedForBatch = if (entry.id in selectedForBatch) {
-                                selectedForBatch - entry.id
-                            } else {
-                                selectedForBatch + entry.id
-                            }
-                        }
-                    )
                 }
             }
         }
