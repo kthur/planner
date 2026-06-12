@@ -60,6 +60,8 @@ import com.planner.tracker.data.Entry
 import com.planner.tracker.ui.components.CategorySelector
 import com.planner.tracker.ui.components.TimePickerDialogScreen
 import com.planner.tracker.ui.components.EntryCard
+import com.planner.tracker.ui.components.EntryEditDialog
+import com.planner.tracker.ui.components.EntryDeleteConfirmDialog
 import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.categoryColorFromHex
 import java.text.SimpleDateFormat
@@ -118,10 +120,6 @@ fun MainScreen(
     var eventTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showEventTimePicker by remember { mutableStateOf(false) }
     var editingEntry by remember { mutableStateOf<Entry?>(null) }
-    var editStartTime by remember(editingEntry) { mutableLongStateOf(editingEntry?.startTime ?: 0L) }
-    var editEndTime by remember(editingEntry) { mutableLongStateOf(editingEntry?.endTime ?: 0L) }
-    var showEditStartTimePicker by remember { mutableStateOf(false) }
-    var showEditEndTimePicker by remember { mutableStateOf(false) }
     var deleteConfirmEntry by remember { mutableStateOf<Entry?>(null) }
     var timerMinutes by remember { mutableStateOf("") }
     var showAlarmDialog by remember { mutableStateOf(false) }
@@ -154,9 +152,9 @@ fun MainScreen(
     LaunchedEffect(selectedCategory, categoryInfoMap) {
         val catType = categoryInfoMap[selectedCategory]?.entryType ?: "DURATION"
         when (catType) {
-            "COUNT" -> { inputMode = false; directInputSubMode = 3 }
-            "DURATION" -> { inputMode = true; directInputSubMode = 0 }
-            "BOTH" -> { inputMode = true; directInputSubMode = 0 }
+            "COUNT" -> { inputMode = true; directInputSubMode = 3 }
+            "DURATION" -> { inputMode = false; directInputSubMode = 0 }
+            "BOTH" -> { inputMode = false; directInputSubMode = 0 }
         }
     }
 
@@ -226,131 +224,27 @@ fun MainScreen(
         )
     }
 
-    if (showEditStartTimePicker) {
-        val now = Calendar.getInstance().apply { timeInMillis = editStartTime }
-        TimePickerDialogScreen(
-            currentHour = now.get(Calendar.HOUR_OF_DAY),
-            currentMinute = now.get(Calendar.MINUTE),
-            onTimeSelected = { h, m ->
-                cal.timeInMillis = editStartTime
-                cal.set(Calendar.HOUR_OF_DAY, h)
-                cal.set(Calendar.MINUTE, m)
-                cal.set(Calendar.SECOND, 0)
-                cal.set(Calendar.MILLISECOND, 0)
-                editStartTime = cal.timeInMillis
-                showEditStartTimePicker = false
-            },
-            onDismiss = { showEditStartTimePicker = false }
-        )
-    }
-
-    if (showEditEndTimePicker) {
-        val now = Calendar.getInstance().apply { timeInMillis = editEndTime }
-        TimePickerDialogScreen(
-            currentHour = now.get(Calendar.HOUR_OF_DAY),
-            currentMinute = now.get(Calendar.MINUTE),
-            onTimeSelected = { h, m ->
-                cal.timeInMillis = editEndTime
-                cal.set(Calendar.HOUR_OF_DAY, h)
-                cal.set(Calendar.MINUTE, m)
-                cal.set(Calendar.SECOND, 0)
-                cal.set(Calendar.MILLISECOND, 0)
-                editEndTime = cal.timeInMillis
-                showEditEndTimePicker = false
-            },
-            onDismiss = { showEditEndTimePicker = false }
-        )
-    }
-
     editingEntry?.let { entry ->
-        val editCat = remember(entry) { mutableStateOf(entry.category) }
-        val editNote = remember(entry) { mutableStateOf(entry.note) }
-        val isEvent = entry.entryType == "EVENT"
-
-        AlertDialog(
-            onDismissRequest = { editingEntry = null },
-            title = { Text("항목 수정") },
-            text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    CategorySelector(categories = categories, selected = editCat.value, onSelect = { editCat.value = it })
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
-                    if (isEvent) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedButton(
-                                onClick = { showEditStartTimePicker = true },
-                                modifier = Modifier.width(180.dp)
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("발생 시간", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(timeFormat.format(Date(editStartTime)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Accent)
-                                }
-                            }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedButton(
-                                onClick = { showEditStartTimePicker = true },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("시작 시간", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(timeFormat.format(Date(editStartTime)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Accent)
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            OutlinedButton(
-                                onClick = { showEditEndTimePicker = true },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("종료 시간", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(timeFormat.format(Date(editEndTime)), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Accent)
-                                }
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = editNote.value, onValueChange = { editNote.value = it }, label = { Text("메모") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (isEvent) {
-                        onUpdateEntry(entry.copy(category = editCat.value, note = editNote.value, minutes = 0, startTime = editStartTime, endTime = 0L))
-                    } else {
-                        val mins = if (editEndTime > editStartTime) ((editEndTime - editStartTime) / 60000).toInt() else 0
-                        onUpdateEntry(entry.copy(category = editCat.value, note = editNote.value, minutes = mins, startTime = editStartTime, endTime = editEndTime))
-                    }
-                    editingEntry = null
-                }) { Text("저장") }
-            },
-            dismissButton = { TextButton(onClick = { editingEntry = null }) { Text("취소") } }
+        EntryEditDialog(
+            entry = entry,
+            categories = categories,
+            onDismiss = { editingEntry = null },
+            onConfirm = { edited ->
+                onUpdateEntry(edited)
+                editingEntry = null
+            }
         )
     }
-
-
 
     deleteConfirmEntry?.let { entry ->
-        val catDisplay = categoryInfoMap[entry.category]?.displayName ?: entry.category
-        AlertDialog(
-            onDismissRequest = { deleteConfirmEntry = null },
-            title = { Text("항목 삭제") },
-            text = { Text("\"${catDisplay}\" 항목을 삭제하시겠습니까?") },
-            confirmButton = { TextButton(onClick = { onDeleteEntry(entry); deleteConfirmEntry = null }) { Text("삭제", color = Accent) } },
-            dismissButton = { TextButton(onClick = { deleteConfirmEntry = null }) { Text("취소") } }
+        EntryDeleteConfirmDialog(
+            entry = entry,
+            categoryInfoMap = categoryInfoMap,
+            onDismiss = { deleteConfirmEntry = null },
+            onConfirm = {
+                onDeleteEntry(entry)
+                deleteConfirmEntry = null
+            }
         )
     }
 

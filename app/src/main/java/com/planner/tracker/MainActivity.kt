@@ -25,6 +25,9 @@ import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,11 +52,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.planner.tracker.data.Entry
 import com.planner.tracker.ui.screens.GoalsScreen
 import com.planner.tracker.ui.screens.MainScreen
 import com.planner.tracker.ui.screens.StatsScreen
 import com.planner.tracker.ui.components.CategoryManageDialog
 import com.planner.tracker.ui.components.DatePickerDialogScreen
+import com.planner.tracker.ui.components.EntryEditDialog
+import com.planner.tracker.ui.components.EntryDeleteConfirmDialog
 import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.PlannerTheme
 import com.planner.tracker.viewmodel.PlannerViewModel
@@ -176,6 +183,45 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     var showCategoryManageDialog by rememberSaveable { mutableStateOf(false) }
 
+    var selectedStatsEntry by remember { mutableStateOf<Entry?>(null) }
+    var showStatsEditDialog by remember { mutableStateOf(false) }
+    var showStatsDeleteConfirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(selectedDate) {
+        selectedStatsEntry = null
+    }
+
+    if (showStatsEditDialog) {
+        selectedStatsEntry?.let { entry ->
+            EntryEditDialog(
+                entry = entry,
+                categories = categories,
+                onDismiss = { showStatsEditDialog = false },
+                onConfirm = { edited ->
+                    viewModel.updateEntry(edited)
+                    selectedStatsEntry = null
+                    showStatsEditDialog = false
+                }
+            )
+        }
+    }
+
+    if (showStatsDeleteConfirm) {
+        selectedStatsEntry?.let { entry ->
+            val categoryInfoMap = remember(categories) { categories.associateBy { it.name } }
+            EntryDeleteConfirmDialog(
+                entry = entry,
+                categoryInfoMap = categoryInfoMap,
+                onDismiss = { showStatsDeleteConfirm = false },
+                onConfirm = {
+                    viewModel.deleteEntry(entry)
+                    selectedStatsEntry = null
+                    showStatsDeleteConfirm = false
+                }
+            )
+        }
+    }
+
     if (showDatePicker) {
         DatePickerDialogScreen(
             currentDate = selectedDate,
@@ -232,8 +278,20 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                             }
                         }
                         1 -> {
-                            TextButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) { Text("복원", color = Accent) }
-                            IconButton(onClick = { exportLauncher.launch("planner_backup_${System.currentTimeMillis()}.json") }) { Icon(Icons.Default.Share, contentDescription = "내보내기", tint = Accent) }
+                            if (selectedStatsEntry != null) {
+                                IconButton(onClick = { showStatsEditDialog = true }) {
+                                    Icon(Icons.Default.Edit, contentDescription = "수정", tint = Accent)
+                                }
+                                IconButton(onClick = { showStatsDeleteConfirm = true }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "삭제", tint = Accent)
+                                }
+                                IconButton(onClick = { selectedStatsEntry = null }) {
+                                    Icon(Icons.Default.Close, contentDescription = "선택 취소", tint = MaterialTheme.colorScheme.onBackground)
+                                }
+                            } else {
+                                TextButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) { Text("복원", color = Accent) }
+                                IconButton(onClick = { exportLauncher.launch("planner_backup_${System.currentTimeMillis()}.json") }) { Icon(Icons.Default.Share, contentDescription = "내보내기", tint = Accent) }
+                            }
                         }
                         2 -> {
                             TextButton(onClick = { showCategoryManageDialog = true }) {
@@ -256,7 +314,7 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                 navItems.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedTab == index,
-                        onClick = { selectedTab = index },
+                        onClick = { selectedTab = index; selectedStatsEntry = null },
                         icon = { Icon(item.icon, contentDescription = item.label) },
                         label = { Text(item.label) },
                         alwaysShowLabel = true
@@ -302,7 +360,9 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     monthlyDailyCategoryMap = monthlyDailyCategoryMap,
                     onMonthChange = { y, m -> viewModel.setCurrentMonth(y, m) },
                     onDateSelected = { viewModel.setSelectedDate(it) },
-                    onNavigateToGoals = { selectedTab = 2 }
+                    onNavigateToGoals = { selectedTab = 2 },
+                    selectedEntry = selectedStatsEntry,
+                    onSelectEntry = { selectedStatsEntry = it }
                 )
                 2 -> GoalsScreen(
                     categories = categories,

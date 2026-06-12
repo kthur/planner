@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -84,7 +85,9 @@ fun StatsScreen(
     monthlyDailyCategoryMap: Map<Long, List<String>>,
     onMonthChange: (Int, Int) -> Unit,
     onDateSelected: (Long) -> Unit,
-    onNavigateToGoals: () -> Unit
+    onNavigateToGoals: () -> Unit,
+    selectedEntry: Entry? = null,
+    onSelectEntry: (Entry?) -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var year by remember(currentYear) { mutableIntStateOf(currentYear) }
@@ -237,12 +240,44 @@ fun StatsScreen(
                             val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
                             val displayName = catInfo?.displayName ?: entry.category
                             val isCountEntry = entry.count > 0
+                            val isSelected = selectedEntry?.id == entry.id
+
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) Accent.copy(alpha = 0.15f) else androidx.compose.ui.graphics.Color.Transparent)
+                                    .clickable {
+                                        if (isSelected) {
+                                            onSelectEntry(null)
+                                        } else {
+                                            onSelectEntry(entry)
+                                        }
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(Modifier.size(10.dp).clip(CircleShape).background(color))
-                                Spacer(Modifier.width(8.dp))
+                                if (isSelected) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(18.dp)
+                                            .clip(CircleShape)
+                                            .background(Accent),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                } else {
+                                    Box(Modifier.size(10.dp).clip(CircleShape).background(color))
+                                    Spacer(Modifier.width(8.dp))
+                                }
+
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(text = displayName, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
                                     if (entry.startTime > 0 && entry.endTime > 0) {
@@ -255,7 +290,7 @@ fun StatsScreen(
                                     Text(text = "${entry.minutes}분", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
                                 }
                                 if (entry.note.isNotBlank()) {
-                                    Spacer(Modifier.width(4.dp))
+                                    Spacer(Modifier.width(6.dp))
                                     Text(text = entry.note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, maxLines = 1)
                                 }
                             }
