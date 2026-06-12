@@ -1,6 +1,7 @@
 package com.planner.tracker.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,8 +45,6 @@ import java.util.Locale
 fun EntryCard(
     entry: Entry,
     categoryInfo: Map<String, CategoryEntity>,
-    onDelete: () -> Unit,
-    onEdit: () -> Unit,
     onIncrement: (() -> Unit)? = null,
     onDecrement: (() -> Unit)? = null,
     isSelected: Boolean = false,
@@ -102,6 +101,7 @@ fun EntryCard(
                         .size(18.dp)
                         .clip(CircleShape)
                         .background(if (isSelected) color else color.copy(alpha = 0.25f))
+                        .clickable { onToggleSelect() }
                 )
                 Spacer(modifier = Modifier.width(6.dp))
             }
@@ -170,13 +170,6 @@ fun EntryCard(
                 }
             }
 
-            // 액션 버튼
-            IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
-                Icon(Icons.Default.Edit, "수정", tint = Accent, modifier = Modifier.size(16.dp))
-            }
-            IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                Icon(Icons.Default.Delete, "삭제", tint = Accent, modifier = Modifier.size(16.dp))
-            }
         }
     }
 }

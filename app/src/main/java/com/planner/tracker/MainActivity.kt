@@ -352,7 +352,6 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     selectedDate = selectedDate,
                     entries = entries,
                     onAddEntry = { cat, min, note, s, e, type, count -> viewModel.addEntry(cat, min, note, s, e, type, count) },
-                    onDeleteEntry = { viewModel.deleteEntry(it) },
                     onUpdateEntry = { viewModel.updateEntry(it) },
                     isTracking = isTracking,
                     elapsedSeconds = elapsedSeconds,
@@ -363,8 +362,6 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     onStopTrackingAndSave = { cats, note -> viewModel.stopTrackingAndSave(cats, note) },
                     onCancelTracking = { viewModel.cancelTracking() },
                     onClearAlarm = { viewModel.clearAlarmTriggered() },
-                    onNoteChange = { viewModel.updateTrackingNote(it) },
-                    onCategoriesChange = { cats, displays -> viewModel.updateTrackingCategories(cats, displays) },
                     onBatchDelete = { entries -> entries.forEach { viewModel.deleteEntry(it) } }
                 )
                 1 -> StatsScreen(

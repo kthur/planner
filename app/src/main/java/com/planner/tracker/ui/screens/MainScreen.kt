@@ -60,8 +60,6 @@ import com.planner.tracker.data.Entry
 import com.planner.tracker.ui.components.CategorySelector
 import com.planner.tracker.ui.components.TimePickerDialogScreen
 import com.planner.tracker.ui.components.EntryCard
-import com.planner.tracker.ui.components.EntryEditDialog
-import com.planner.tracker.ui.components.EntryDeleteConfirmDialog
 import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.categoryColorFromHex
 import java.text.SimpleDateFormat
@@ -76,7 +74,6 @@ fun MainScreen(
     selectedDate: Long,
     entries: List<Entry>,
     onAddEntry: (String, Int, String, Long, Long, String, Int) -> Unit,
-    onDeleteEntry: (Entry) -> Unit,
     onUpdateEntry: (Entry) -> Unit,
     isTracking: Boolean = false,
     elapsedSeconds: Long = 0,
@@ -87,8 +84,6 @@ fun MainScreen(
     onStopTrackingAndSave: (Set<String>, String) -> Pair<Long, Long>? = { _, _ -> null },
     onCancelTracking: () -> Unit = {},
     onClearAlarm: () -> Unit = {},
-    onNoteChange: (String) -> Unit = {},
-    onCategoriesChange: (Set<String>, String) -> Unit = { _, _ -> },
     onBatchDelete: (List<Entry>) -> Unit = {}
 ) {
     var showStartTimePicker by remember { mutableStateOf(false) }
@@ -119,8 +114,6 @@ fun MainScreen(
     var directInputSubMode by remember { mutableStateOf(0) } // 0: 소요시간, 1: 기간, 2: 이벤트, 3: 횟수
     var eventTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showEventTimePicker by remember { mutableStateOf(false) }
-    var editingEntry by remember { mutableStateOf<Entry?>(null) }
-    var deleteConfirmEntry by remember { mutableStateOf<Entry?>(null) }
     var timerMinutes by remember { mutableStateOf("") }
     var showAlarmDialog by remember { mutableStateOf(false) }
     var inputMode by remember { mutableStateOf(false) }
@@ -221,30 +214,6 @@ fun MainScreen(
                 showEventTimePicker = false
             },
             onDismiss = { showEventTimePicker = false }
-        )
-    }
-
-    editingEntry?.let { entry ->
-        EntryEditDialog(
-            entry = entry,
-            categories = categories,
-            onDismiss = { editingEntry = null },
-            onConfirm = { edited ->
-                onUpdateEntry(edited)
-                editingEntry = null
-            }
-        )
-    }
-
-    deleteConfirmEntry?.let { entry ->
-        EntryDeleteConfirmDialog(
-            entry = entry,
-            categoryInfoMap = categoryInfoMap,
-            onDismiss = { deleteConfirmEntry = null },
-            onConfirm = {
-                onDeleteEntry(entry)
-                deleteConfirmEntry = null
-            }
         )
     }
 
@@ -553,8 +522,6 @@ fun MainScreen(
                     EntryCard(
                         entry = entry,
                         categoryInfo = categoryInfoMap,
-                        onDelete = { deleteConfirmEntry = entry },
-                        onEdit = { editingEntry = entry },
                         onIncrement = if (entry.count > 0) {{ onUpdateEntry(entry.copy(count = entry.count + 1)) }} else null,
                         onDecrement = if (entry.count > 0 && entry.count > 1) {{ onUpdateEntry(entry.copy(count = entry.count - 1)) }} else null,
                         isSelected = entry.id in selectedForBatch,
