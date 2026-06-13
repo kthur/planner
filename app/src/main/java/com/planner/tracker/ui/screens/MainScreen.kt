@@ -20,6 +20,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -27,7 +34,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material3.AlertDialog
+import com.planner.tracker.ui.components.PhotoActionDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -71,14 +80,15 @@ import java.util.Locale
 fun MainScreen(
     categories: List<CategoryEntity>,
     selectedDate: Long,
-    onAddEntry: (String, Int, String, Long, Long, String, Int) -> Unit,
+    onAddEntry: (String, Int, String, Long, Long, String, Int, String?) -> Unit,
     isTracking: Boolean = false,
     elapsedSeconds: Long = 0,
     alarmTriggered: Boolean = false,
     restoredNote: String = "",
     restoredCategories: Set<String> = emptySet(),
-    onStartTracking: (Set<String>, String, String, String) -> Unit = { _, _, _, _ -> },
-    onStopTrackingAndSave: (Set<String>, String) -> Pair<Long, Long>? = { _, _ -> null },
+    restoredPhotoUri: String? = null,
+    onStartTracking: (Set<String>, String, String, String, String?) -> Unit = { _, _, _, _, _ -> },
+    onStopTrackingAndSave: (Set<String>, String, String?) -> Pair<Long, Long>? = { _, _, _ -> null },
     onCancelTracking: () -> Unit = {},
     onClearAlarm: () -> Unit = {}
 ) {
@@ -102,6 +112,78 @@ fun MainScreen(
         if (restoredNote.isNotEmpty()) {
             note = restoredNote
         }
+    }
+
+    val context = LocalContext.current
+    var selectedPhotoName by remember { mutableStateOf<String?>(null) }
+    var showPhotoDialog by remember { mutableStateOf(false) }
+    var tempPhotoPath by rememberSaveable { mutableStateOf("") }
+
+    LaunchedEffect(restoredPhotoUri) {
+        if (restoredPhotoUri != null) {
+            selectedPhotoName = restoredPhotoUri
+        }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success && tempPhotoPath.isNotEmpty()) {
+            val tempFile = java.io.File(tempPhotoPath)
+            if (tempFile.exists()) {
+                val photosDir = java.io.File(context.filesDir, "photos")
+                val finalFile = java.io.File(photosDir, "photo_${System.currentTimeMillis()}.jpg")
+                if (tempFile.renameTo(finalFile)) {
+                    selectedPhotoName = finalFile.name
+                }
+            }
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val photosDir = java.io.File(context.filesDir, "photos")
+            if (!photosDir.exists()) photosDir.mkdirs()
+            val finalFile = java.io.File(photosDir, "photo_${System.currentTimeMillis()}.jpg")
+            try {
+                context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    java.io.FileOutputStream(finalFile).use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+                selectedPhotoName = finalFile.name
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+    }
+
+    val clearSelectedPhoto = {
+        selectedPhotoName?.let { filename ->
+            val file = java.io.File(java.io.File(context.filesDir, "photos"), filename)
+            if (file.exists()) file.delete()
+        }
+        selectedPhotoName = null
+    }
+
+    if (showPhotoDialog) {
+        PhotoActionDialog(
+            onDismiss = { showPhotoDialog = false },
+            onTakePhoto = {
+                val photosDir = java.io.File(context.filesDir, "photos")
+                if (!photosDir.exists()) photosDir.mkdirs()
+                val tempFile = java.io.File(photosDir, "temp_${System.currentTimeMillis()}.jpg")
+                tempPhotoPath = tempFile.absolutePath
+                val authority = "${context.packageName}.fileprovider"
+                val providerUri = androidx.core.content.FileProvider.getUriForFile(context, authority, tempFile)
+                cameraLauncher.launch(providerUri)
+            },
+            onPickPhoto = {
+                galleryLauncher.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }
+        )
     }
     var startTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var endTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -252,13 +334,49 @@ fun MainScreen(
                     OutlinedTextField(
                         value = note, onValueChange = { note = it },
                         label = { Text("메모 (선택사항)") },
-                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                        modifier = Modifier.fillMaxWidth(), singleLine = true,
+                        trailingIcon = {
+                            IconButton(onClick = { showPhotoDialog = true }) {
+                                Icon(Icons.Default.AddAPhoto, contentDescription = "사진 추가", tint = Accent)
+                            }
+                        }
                     )
+                    if (selectedPhotoName != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val file = remember(selectedPhotoName) {
+                                java.io.File(java.io.File(context.filesDir, "photos"), selectedPhotoName!!)
+                            }
+                            if (file.exists()) {
+                                AsyncImage(
+                                    model = file,
+                                    contentDescription = "첨부 사진",
+                                    modifier = Modifier
+                                        .size(50.dp)
+                                        .clip(RoundedCornerShape(6.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text("사진 첨부됨", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                                IconButton(onClick = { clearSelectedPhoto() }) {
+                                    Icon(Icons.Default.Close, contentDescription = "삭제", tint = Accent)
+                                }
+                            } else {
+                                selectedPhotoName = null
+                            }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         onClick = {
-                            val timestamps = onStopTrackingAndSave(if (selectedCategory.isNotEmpty()) setOf(selectedCategory) else emptySet(), note)
-                            if (timestamps != null) { note = "" }
+                            val timestamps = onStopTrackingAndSave(if (selectedCategory.isNotEmpty()) setOf(selectedCategory) else emptySet(), note, selectedPhotoName)
+                            if (timestamps != null) { note = ""; selectedPhotoName = null }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Accent),
                         modifier = Modifier.fillMaxWidth()
@@ -269,7 +387,7 @@ fun MainScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedButton(
-                        onClick = { onCancelTracking() },
+                        onClick = { onCancelTracking(); clearSelectedPhoto() },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Close, contentDescription = null, tint = Accent)
@@ -383,29 +501,69 @@ fun MainScreen(
                             Text(text = if (minutes > 0) "소요 시간: ${minutes / 60}시간 ${minutes % 60}분" else "시간을 입력하세요", color = if (minutes > 0) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = if (minutes > 0) FontWeight.Bold else FontWeight.Normal, style = MaterialTheme.typography.bodyMedium)
                             Spacer(modifier = Modifier.height(8.dp))
                         }
-                        OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("메모 (선택사항)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                        OutlinedTextField(
+                            value = note, onValueChange = { note = it },
+                            label = { Text("메모 (선택사항)") },
+                            modifier = Modifier.fillMaxWidth(), singleLine = true,
+                            trailingIcon = {
+                                IconButton(onClick = { showPhotoDialog = true }) {
+                                    Icon(Icons.Default.AddAPhoto, contentDescription = "사진 추가", tint = Accent)
+                                }
+                            }
+                        )
+                        if (selectedPhotoName != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val file = remember(selectedPhotoName) {
+                                    java.io.File(java.io.File(context.filesDir, "photos"), selectedPhotoName!!)
+                                }
+                                if (file.exists()) {
+                                    AsyncImage(
+                                        model = file,
+                                        contentDescription = "첨부 사진",
+                                        modifier = Modifier
+                                            .size(50.dp)
+                                            .clip(RoundedCornerShape(6.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text("사진 첨부됨", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                                    IconButton(onClick = { clearSelectedPhoto() }) {
+                                        Icon(Icons.Default.Close, contentDescription = "삭제", tint = Accent)
+                                    }
+                                } else {
+                                    selectedPhotoName = null
+                                }
+                            }
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(onClick = {
                             val cat = selectedCategory
                             if (cat.isNotEmpty()) {
                                 if (directInputSubMode == 2) {
-                                    onAddEntry(cat, 0, note, eventTime, 0L, "EVENT", 0)
-                                    note = ""
+                                    onAddEntry(cat, 0, note, eventTime, 0L, "EVENT", 0, selectedPhotoName)
+                                    note = ""; selectedPhotoName = null
                                 } else if (directInputSubMode == 3) {
                                     val cnt = countValue.toIntOrNull() ?: 1
                                     if (cnt > 0) {
-                                        onAddEntry(cat, 0, note, 0L, 0L, "COUNT", cnt)
-                                        note = ""; countValue = "1"
+                                        onAddEntry(cat, 0, note, 0L, 0L, "COUNT", cnt, selectedPhotoName)
+                                        note = ""; countValue = "1"; selectedPhotoName = null
                                     }
                                 } else {
                                     val mins = calcMinutesFromTimestamps()
                                     if (mins > 0) {
                                         if (directInputSubMode == 0) {
-                                            onAddEntry(cat, mins, note, 0L, 0L, "DURATION", 0)
+                                            onAddEntry(cat, mins, note, 0L, 0L, "DURATION", 0, selectedPhotoName)
                                         } else {
-                                            onAddEntry(cat, mins, note, startTime, endTime, "DURATION", 0)
+                                            onAddEntry(cat, mins, note, startTime, endTime, "DURATION", 0, selectedPhotoName)
                                         }
-                                        durationH = ""; durationM = ""; note = ""
+                                        durationH = ""; durationM = ""; note = ""; selectedPhotoName = null
                                     }
                                 }
                             }
@@ -421,7 +579,47 @@ fun MainScreen(
                             OutlinedTextField(value = timerMinutes, onValueChange = { timerMinutes = it.filter { c -> c.isDigit() } }, label = { Text("알림 타이머 설정 (분)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true, enabled = !isTracking)
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("메모 (선택사항)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                        OutlinedTextField(
+                            value = note, onValueChange = { note = it },
+                            label = { Text("메모 (선택사항)") },
+                            modifier = Modifier.fillMaxWidth(), singleLine = true,
+                            trailingIcon = {
+                                IconButton(onClick = { showPhotoDialog = true }) {
+                                    Icon(Icons.Default.AddAPhoto, contentDescription = "사진 추가", tint = Accent)
+                                }
+                            }
+                        )
+                        if (selectedPhotoName != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val file = remember(selectedPhotoName) {
+                                    java.io.File(java.io.File(context.filesDir, "photos"), selectedPhotoName!!)
+                                }
+                                if (file.exists()) {
+                                    AsyncImage(
+                                        model = file,
+                                        contentDescription = "첨부 사진",
+                                        modifier = Modifier
+                                            .size(50.dp)
+                                            .clip(RoundedCornerShape(6.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text("사진 첨부됨", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                                    IconButton(onClick = { clearSelectedPhoto() }) {
+                                        Icon(Icons.Default.Close, contentDescription = "삭제", tint = Accent)
+                                    }
+                                } else {
+                                    selectedPhotoName = null
+                                }
+                            }
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(onClick = {
                             val now = Calendar.getInstance()
@@ -431,7 +629,7 @@ fun MainScreen(
                             cal.set(Calendar.SECOND, 0)
                             cal.set(Calendar.MILLISECOND, 0)
                             startTime = cal.timeInMillis
-                            onStartTracking(if (selectedCategory.isNotEmpty()) setOf(selectedCategory) else emptySet(), categoryDisplayStr, note, timerMinutes)
+                            onStartTracking(if (selectedCategory.isNotEmpty()) setOf(selectedCategory) else emptySet(), categoryDisplayStr, note, timerMinutes, selectedPhotoName)
                         }, colors = ButtonDefaults.buttonColors(containerColor = Accent), modifier = Modifier.fillMaxWidth()) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(modifier = Modifier.width(4.dp))

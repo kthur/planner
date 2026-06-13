@@ -38,6 +38,9 @@ interface EntryDao {
 
     @Query("DELETE FROM entries WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("SELECT * FROM entries WHERE id = :id")
+    suspend fun getEntryById(id: Long): Entry?
 }
 
 data class CategoryStat(

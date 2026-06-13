@@ -78,6 +78,9 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
     private val _restoredCategories = MutableStateFlow<Set<String>>(emptySet())
     val restoredCategories: StateFlow<Set<String>> = _restoredCategories
 
+    private val _restoredPhotoUri = MutableStateFlow<String?>(null)
+    val restoredPhotoUri: StateFlow<String?> = _restoredPhotoUri
+
     private var _trackingStartedAt = 0L
     private var trackingJob: Job? = null
     private var timerTargetSec = 0
@@ -172,9 +175,9 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             timerTargetSec = targetSec
             _restoredNote.value = note
             _restoredCategories.value = categoriesSet
+            _restoredPhotoUri.value = prefs.getString("photo_uri", null)
 
             val timerSec = timerMinutes.toIntOrNull() ?: 0
-            val hasTimer = timerSec > 0
             trackingJob = viewModelScope.launch {
                 while (true) {
                     val secs = (SystemClock.elapsedRealtime() - _trackingStartedAt) / 1000
@@ -201,7 +204,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         _currentMonth.value = month
     }
 
-    fun addEntry(category: String, minutes: Int, note: String, startTime: Long = 0, endTime: Long = 0, entryType: String = "DURATION", count: Int = 0) {
+    fun addEntry(category: String, minutes: Int, note: String, startTime: Long = 0, endTime: Long = 0, entryType: String = "DURATION", count: Int = 0, photoUri: String? = null) {
         viewModelScope.launch {
             val dayRange = Repository.getDayRange(if (startTime > 0) startTime else _selectedDate.value)
             val catInfo = repository.getCategoryByName(category)
@@ -215,7 +218,8 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                 startTime = startTime,
                 endTime = endTime,
                 entryType = entryType,
-                count = count
+                count = count,
+                photoUri = photoUri
             )
 
             val eventId = CalendarSyncManager.addEvent(getApplication(), tempEntry, displayName)
@@ -228,12 +232,22 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             if (entry.calendarEventId != null) {
                 CalendarSyncManager.deleteEvent(getApplication(), entry.calendarEventId)
             }
+            if (!entry.photoUri.isNullOrEmpty()) {
+                val file = java.io.File(java.io.File(getApplication<Application>().filesDir, "photos"), entry.photoUri)
+                if (file.exists()) file.delete()
+            }
             repository.deleteEntry(entry)
         }
     }
 
     fun updateEntry(entry: Entry) {
         viewModelScope.launch {
+            val oldEntry = repository.getEntryById(entry.id)
+            if (oldEntry != null && !oldEntry.photoUri.isNullOrEmpty() && oldEntry.photoUri != entry.photoUri) {
+                val file = java.io.File(java.io.File(getApplication<Application>().filesDir, "photos"), oldEntry.photoUri)
+                if (file.exists()) file.delete()
+            }
+
             val catInfo = repository.getCategoryByName(entry.category)
             val displayName = catInfo?.displayName ?: entry.category
 
@@ -263,7 +277,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun startTracking(categories: Set<String>, categoryDisplays: String, note: String, timerMinutes: String) {
+    fun startTracking(categories: Set<String>, categoryDisplays: String, note: String, timerMinutes: String, photoUri: String? = null) {
         val now = SystemClock.elapsedRealtime()
         val timerSec = timerMinutes.toIntOrNull() ?: 0
         _trackingStartedAt = now
@@ -274,6 +288,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
         _restoredNote.value = note
         _restoredCategories.value = categories
+        _restoredPhotoUri.value = photoUri
 
         val prefs = getApplication<Application>().getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE)
         prefs.edit().apply {
@@ -284,6 +299,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             putString("note", note)
             putString("categories", categories.joinToString(","))
             putString("category_displays", categoryDisplays)
+            putString("photo_uri", photoUri)
         }.apply()
 
         val ctx = getApplication<Application>()
@@ -317,7 +333,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun stopTrackingAndSave(categories: Set<String>, note: String): Pair<Long, Long>? {
+    fun stopTrackingAndSave(categories: Set<String>, note: String, photoUri: String? = null): Pair<Long, Long>? {
         trackingJob?.cancel()
         trackingJob = null
         val ctx = getApplication<Application>()
@@ -348,7 +364,8 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                         minutes = minutes,
                         note = note,
                         startTime = startWallClock,
-                        endTime = endTimeValue
+                        endTime = endTimeValue,
+                        photoUri = photoUri
                     )
 
                     val eventId = CalendarSyncManager.addEvent(getApplication(), tempEntry, displayName)
@@ -401,6 +418,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         prefs.edit().clear().apply()
         _restoredNote.value = ""
         _restoredCategories.value = emptySet()
+        _restoredPhotoUri.value = null
     }
 
     fun addCategory(name: String, displayName: String, colorHex: String, entryType: String = "DURATION") {
@@ -432,7 +450,8 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             val sb = StringBuilder()
             sb.appendLine("{\"entries\":[")
             entries.forEachIndexed { i, e ->
-                sb.appendLine("""{"id":${e.id},"date":${e.date},"category":"${e.category}","minutes":${e.minutes},"note":"${e.note.replace("\"", "\\\"")}","startTime":${e.startTime},"endTime":${e.endTime}}${if (i < entries.lastIndex) "," else ""}""")
+                val photoVal = if (e.photoUri != null) "\"${e.photoUri}\"" else "null"
+                sb.appendLine("""{"id":${e.id},"date":${e.date},"category":"${e.category}","minutes":${e.minutes},"note":"${e.note.replace("\"", "\\\"")}","startTime":${e.startTime},"endTime":${e.endTime},"photoUri":$photoVal}${if (i < entries.lastIndex) "," else ""}""")
             }
             sb.appendLine("],\"goals\":[")
             allGoals.forEachIndexed { i, g ->
@@ -457,7 +476,8 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                         minutes = obj.getInt("minutes"),
                         note = obj.optString("note", ""),
                         startTime = obj.getLong("startTime"),
-                        endTime = obj.getLong("endTime")
+                        endTime = obj.getLong("endTime"),
+                        photoUri = if (obj.isNull("photoUri")) null else obj.optString("photoUri").takeIf { it.isNotEmpty() }
                     )
                     repository.insertEntry(entry)
                 }

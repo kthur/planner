@@ -157,6 +157,7 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
     val alarmTriggered by viewModel.alarmTriggered.collectAsState()
     val restoredNote by viewModel.restoredNote.collectAsState()
     val restoredCategories by viewModel.restoredCategories.collectAsState()
+    val restoredPhotoUri by viewModel.restoredPhotoUri.collectAsState()
     val weeklyDailyCategoryStats by viewModel.weeklyDailyCategoryStats.collectAsState()
     val monthlyDailyCategoryMap by viewModel.monthlyDailyCategoryMap.collectAsState()
     val categories by viewModel.categories.collectAsState()
@@ -350,14 +351,15 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                 0 -> MainScreen(
                     categories = categories,
                     selectedDate = selectedDate,
-                    onAddEntry = { cat, min, note, s, e, type, count -> viewModel.addEntry(cat, min, note, s, e, type, count) },
+                    onAddEntry = { cat, min, note, s, e, type, count, photo -> viewModel.addEntry(cat, min, note, s, e, type, count, photo) },
                     isTracking = isTracking,
                     elapsedSeconds = elapsedSeconds,
                     alarmTriggered = alarmTriggered,
                     restoredNote = restoredNote,
                     restoredCategories = restoredCategories,
-                    onStartTracking = { cats, displays, note, timerMinutes -> viewModel.startTracking(cats, displays, note, timerMinutes) },
-                    onStopTrackingAndSave = { cats, note -> viewModel.stopTrackingAndSave(cats, note) },
+                    restoredPhotoUri = restoredPhotoUri,
+                    onStartTracking = { cats, displays, note, timerMinutes, photo -> viewModel.startTracking(cats, displays, note, timerMinutes, photo) },
+                    onStopTrackingAndSave = { cats, note, photo -> viewModel.stopTrackingAndSave(cats, note, photo) },
                     onCancelTracking = { viewModel.cancelTracking() },
                     onClearAlarm = { viewModel.clearAlarmTriggered() }
                 )

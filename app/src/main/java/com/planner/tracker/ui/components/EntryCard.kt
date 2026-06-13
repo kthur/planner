@@ -33,6 +33,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import com.planner.tracker.data.CategoryEntity
 import com.planner.tracker.data.Entry
 import com.planner.tracker.ui.theme.Accent
@@ -129,9 +132,46 @@ fun EntryCard(
                 if (entry.note.isNotBlank()) {
                     Text(text = entry.note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, fontSize = 12.sp, maxLines = 1)
                 }
+
+                if (isSelected && !entry.photoUri.isNullOrEmpty()) {
+                    val context = LocalContext.current
+                    val photoFile = remember(entry.photoUri) {
+                        java.io.File(java.io.File(context.filesDir, "photos"), entry.photoUri)
+                    }
+                    if (photoFile.exists()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        AsyncImage(
+                            model = photoFile,
+                            contentDescription = "첨부 사진",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(150.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.width(4.dp))
+
+            if (!isSelected && !entry.photoUri.isNullOrEmpty()) {
+                val context = LocalContext.current
+                val photoFile = remember(entry.photoUri) {
+                    java.io.File(java.io.File(context.filesDir, "photos"), entry.photoUri)
+                }
+                if (photoFile.exists()) {
+                    AsyncImage(
+                        model = photoFile,
+                        contentDescription = "첨부 사진",
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(6.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
 
             // 값 표시 (+/- 버튼)
             if (isCount) {

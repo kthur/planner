@@ -34,6 +34,8 @@ class Repository(
 
     suspend fun deleteEntryById(id: Long) = entryDao.deleteById(id)
 
+    suspend fun getEntryById(id: Long): Entry? = entryDao.getEntryById(id)
+
     fun getAllGoals(): Flow<List<Goal>> = goalDao.getAllGoals()
 
     fun getGoalsByMonth(yearMonth: String): Flow<List<Goal>> = goalDao.getGoalsByMonth(yearMonth)
