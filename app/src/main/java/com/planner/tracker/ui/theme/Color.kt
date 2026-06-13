@@ -27,5 +27,12 @@ val FinanceColor = Color(0xFFF44336)
 val TechColor = Color(0xFF00BCD4)
 
 fun categoryColorFromHex(hex: String): Color {
-    return Color(("FF$hex").toLong(16))
+    val cleanHex = if (hex.startsWith("#")) hex.substring(1) else hex
+    val fullHex = when (cleanHex.length) {
+        6 -> "FF$cleanHex"
+        8 -> cleanHex
+        else -> "FF$cleanHex"
+    }
+    return Color(fullHex.toLong(16))
 }
+

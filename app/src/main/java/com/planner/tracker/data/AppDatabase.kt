@@ -70,14 +70,31 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val DB_CALLBACK = object : RoomDatabase.Callback() {
+            override fun onCreate(db: SupportSQLiteDatabase) {
+                super.onCreate(db)
+                db.execSQL("INSERT OR IGNORE INTO categories (name, displayName, colorHex, isDefault, entryType) VALUES ('HEALTH', '운동', '4CAF50', 1, 'DURATION')")
+                db.execSQL("INSERT OR IGNORE INTO categories (name, displayName, colorHex, isDefault, entryType) VALUES ('MIND', '독서', '2196F3', 1, 'DURATION')")
+                db.execSQL("INSERT OR IGNORE INTO categories (name, displayName, colorHex, isDefault, entryType) VALUES ('FAMILY', '가족', 'FF9800', 1, 'DURATION')")
+                db.execSQL("INSERT OR IGNORE INTO categories (name, displayName, colorHex, isDefault, entryType) VALUES ('LANGUAGE', '외국어', '9C27B0', 1, 'DURATION')")
+                db.execSQL("INSERT OR IGNORE INTO categories (name, displayName, colorHex, isDefault, entryType) VALUES ('FINANCE', '재테크', 'F44336', 1, 'DURATION')")
+                db.execSQL("INSERT OR IGNORE INTO categories (name, displayName, colorHex, isDefault, entryType) VALUES ('TECHNOLOGY', '기술', '00BCD4', 1, 'DURATION')")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "planner_db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build().also { INSTANCE = it }
+                )
+                .addCallback(DB_CALLBACK)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .build()
+                .also { INSTANCE = it }
             }
         }
+
     }
 }
