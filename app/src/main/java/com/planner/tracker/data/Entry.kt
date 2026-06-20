@@ -16,7 +16,9 @@ data class Entry(
     val entryType: String = "DURATION",
     val count: Int = 0,
     val calendarEventId: Long? = null,
-    val photoUri: String? = null
+    val photoUri: String? = null,
+    val photoUrl: String? = null,
+    val isSynced: Boolean = false
 )
 
 data class DailyCategoryStat(

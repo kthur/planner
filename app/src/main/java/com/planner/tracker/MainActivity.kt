@@ -54,9 +54,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.planner.tracker.data.Entry
+import androidx.compose.material.icons.filled.Groups
 import com.planner.tracker.ui.screens.GoalsScreen
 import com.planner.tracker.ui.screens.MainScreen
 import com.planner.tracker.ui.screens.StatsScreen
+import com.planner.tracker.ui.screens.ShareScreen
 import com.planner.tracker.ui.components.CategoryManageDialog
 import com.planner.tracker.ui.components.DatePickerDialogScreen
 import com.planner.tracker.ui.components.CalendarSettingsDialog
@@ -132,7 +134,8 @@ data class NavItem(val label: String, val icon: ImageVector)
 private val navItems = listOf(
     NavItem("기록", Icons.Default.EditNote),
     NavItem("통계", Icons.Default.BarChart),
-    NavItem("목표", Icons.Default.Flag)
+    NavItem("목표", Icons.Default.Flag),
+    NavItem("공유", Icons.Default.Groups)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -288,6 +291,7 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                         }
                         1 -> Text("통계", style = MaterialTheme.typography.titleLarge)
                         2 -> Text("목표", style = MaterialTheme.typography.titleLarge)
+                        3 -> Text("공유 공간", style = MaterialTheme.typography.titleLarge)
                     }
                 },
                 actions = {
@@ -391,6 +395,10 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     categoryProgress = categoryProgress,
                     onUpsertGoal = { viewModel.upsertGoal(it) },
                     onDeleteGoal = { viewModel.deleteGoal(it) }
+                )
+                3 -> ShareScreen(
+                    viewModel = viewModel,
+                    categories = categories
                 )
             }
         }

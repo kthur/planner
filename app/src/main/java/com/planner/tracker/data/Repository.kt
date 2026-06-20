@@ -26,7 +26,7 @@ class Repository(
     fun getDailyStatsInRange(start: Long, end: Long): Flow<List<DailyStat>> =
         entryDao.getDailyStatsInRange(start, end)
 
-    suspend fun insertEntry(entry: Entry) = entryDao.insert(entry)
+    suspend fun insertEntry(entry: Entry): Long = entryDao.insert(entry)
 
     suspend fun updateEntry(entry: Entry) = entryDao.update(entry)
 
@@ -35,6 +35,8 @@ class Repository(
     suspend fun deleteEntryById(id: Long) = entryDao.deleteById(id)
 
     suspend fun getEntryById(id: Long): Entry? = entryDao.getEntryById(id)
+
+    suspend fun getUnsyncedEntries(): List<Entry> = entryDao.getUnsyncedEntries()
 
     fun getAllGoals(): Flow<List<Goal>> = goalDao.getAllGoals()
 

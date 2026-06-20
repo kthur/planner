@@ -6,6 +6,8 @@ import android.content.Intent
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import android.net.Uri
+import com.planner.tracker.data.CloudService
 import com.planner.tracker.data.AppDatabase
 import com.planner.tracker.data.CategoryEntity
 import com.planner.tracker.data.CategoryStat
@@ -90,6 +92,27 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     val monthlyDailyCategoryMap: StateFlow<Map<Long, List<String>>>
 
+    // Firebase states
+    val currentUserState = CloudService.getAuthStateFlow().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), null
+    )
+
+    val userProfileState = currentUserState.flatMapLatest { user ->
+        if (user != null) {
+            CloudService.getUserProfileFlow(user.uid)
+        } else {
+            kotlinx.coroutines.flow.flowOf(null)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val sharedFeed = userProfileState.flatMapLatest { profile ->
+        if (profile?.groupId != null) {
+            CloudService.subscribeToFeed(profile.groupId)
+        } else {
+            kotlinx.coroutines.flow.flowOf(emptyList())
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         val db = AppDatabase.getInstance(application)
         repository = Repository(db.entryDao(), db.goalDao(), db.categoryDao())
@@ -101,6 +124,14 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             categories.collect { catList ->
                 WearDataManager.syncCategories(application, catList)
+            }
+        }
+
+        viewModelScope.launch {
+            userProfileState.collect { profile ->
+                if (profile?.groupId != null) {
+                    syncUnsyncedEntries()
+                }
             }
         }
 
@@ -230,7 +261,9 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             )
 
             val eventId = CalendarSyncManager.addEvent(getApplication(), tempEntry, displayName)
-            repository.insertEntry(tempEntry.copy(calendarEventId = eventId))
+            val finalEntry = tempEntry.copy(calendarEventId = eventId)
+            val insertedId = repository.insertEntry(finalEntry)
+            syncEntryToCloud(finalEntry.copy(id = insertedId))
         }
     }
 
@@ -244,6 +277,11 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                 if (file.exists()) file.delete()
             }
             repository.deleteEntry(entry)
+
+            val profile = userProfileState.value
+            if (profile?.groupId != null) {
+                CloudService.deleteSyncedEntry(profile.groupId, entry.id)
+            }
         }
     }
 
@@ -268,7 +306,9 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                 newEventId = CalendarSyncManager.addEvent(getApplication(), entry, displayName)
             }
 
-            repository.updateEntry(entry.copy(calendarEventId = newEventId))
+            val updatedLocal = entry.copy(calendarEventId = newEventId, isSynced = false)
+            repository.updateEntry(updatedLocal)
+            syncEntryToCloud(updatedLocal)
         }
     }
 
@@ -399,7 +439,9 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                     )
 
                     val eventId = CalendarSyncManager.addEvent(getApplication(), tempEntry, displayName)
-                    repository.insertEntry(tempEntry.copy(calendarEventId = eventId))
+                    val finalEntry = tempEntry.copy(calendarEventId = eventId)
+                    val insertedId = repository.insertEntry(finalEntry)
+                    syncEntryToCloud(finalEntry.copy(id = insertedId))
                 }
             }
             return Pair(startWallClock, endTimeValue)
@@ -578,6 +620,135 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                 onResult(true, "성공적으로 복원되었습니다 (entries: ${entriesArray.length()})")
             } catch (e: Exception) {
                 onResult(false, "복원 실패: ${e.message}")
+            }
+        }
+    }
+
+    fun registerUser(email: String, password: String, displayName: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val result = CloudService.registerUser(email, password, displayName)
+            if (result.isSuccess) {
+                onResult(true, "회원가입 성공")
+            } else {
+                onResult(false, result.exceptionOrNull()?.message ?: "회원가입 실패")
+            }
+        }
+    }
+
+    fun loginUser(email: String, password: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val result = CloudService.loginUser(email, password)
+            if (result.isSuccess) {
+                onResult(true, "로그인 성공")
+            } else {
+                onResult(false, result.exceptionOrNull()?.message ?: "로그인 실패")
+            }
+        }
+    }
+
+    fun logoutUser() {
+        CloudService.logout()
+    }
+
+    fun createGroup(name: String, onResult: (Boolean, String) -> Unit) {
+        val user = currentUserState.value
+        if (user == null) {
+            onResult(false, "로그인이 필요합니다.")
+            return
+        }
+        viewModelScope.launch {
+            val result = CloudService.createGroup(name, user.uid)
+            if (result.isSuccess) {
+                onResult(true, result.getOrThrow())
+            } else {
+                onResult(false, result.exceptionOrNull()?.message ?: "그룹 생성 실패")
+            }
+        }
+    }
+
+    fun joinGroup(code: String, onResult: (Boolean, String) -> Unit) {
+        val user = currentUserState.value
+        if (user == null) {
+            onResult(false, "로그인이 필요합니다.")
+            return
+        }
+        viewModelScope.launch {
+            val result = CloudService.joinGroup(code, user.uid)
+            if (result.isSuccess) {
+                onResult(true, result.getOrThrow())
+            } else {
+                onResult(false, result.exceptionOrNull()?.message ?: "그룹 가입 실패")
+            }
+        }
+    }
+
+    fun leaveGroup(code: String, onResult: (Boolean, String) -> Unit) {
+        val user = currentUserState.value
+        if (user == null) {
+            onResult(false, "로그인이 필요합니다.")
+            return
+        }
+        viewModelScope.launch {
+            val result = CloudService.leaveGroup(user.uid, code)
+            if (result.isSuccess) {
+                onResult(true, "그룹 탈퇴 성공")
+            } else {
+                onResult(false, result.exceptionOrNull()?.message ?: "그룹 탈퇴 실패")
+            }
+        }
+    }
+
+    fun syncEntryToCloud(entry: Entry) {
+        val user = currentUserState.value ?: return
+        val profile = userProfileState.value ?: return
+        val groupId = profile.groupId ?: return
+
+        viewModelScope.launch {
+            try {
+                var finalEntry = entry
+                // 1. If photoUri is local and photoUrl is null, upload it first
+                if (!entry.photoUri.isNullOrEmpty() && entry.photoUrl.isNullOrEmpty()) {
+                    val file = java.io.File(java.io.File(getApplication<Application>().filesDir, "photos"), entry.photoUri)
+                    if (file.exists()) {
+                        val localUri = Uri.fromFile(file)
+                        val uploadResult = CloudService.uploadPhoto(groupId, localUri)
+                        if (uploadResult.isSuccess) {
+                            val downloadUrl = uploadResult.getOrThrow()
+                            finalEntry = entry.copy(photoUrl = downloadUrl)
+                            repository.updateEntry(finalEntry)
+                        }
+                    }
+                }
+
+                // 2. Sync entry metadata to Firestore
+                val syncResult = CloudService.syncEntry(
+                    groupId = groupId,
+                    entry = finalEntry,
+                    userId = user.uid,
+                    userName = profile.displayName.ifEmpty { user.email ?: "멤버" }
+                )
+
+                if (syncResult.isSuccess) {
+                    repository.updateEntry(finalEntry.copy(isSynced = true))
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun syncUnsyncedEntries() {
+        val profile = userProfileState.value ?: return
+        if (profile.groupId.isNullOrEmpty()) return
+
+        viewModelScope.launch {
+            try {
+                val unsynced = repository.getUnsyncedEntries()
+                unsynced.forEach { entry ->
+                    syncEntryToCloud(entry)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
