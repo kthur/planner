@@ -320,7 +320,7 @@ fun MainScreen(
                         elapsedSeconds
                     }
                     val bH = displaySeconds / 3600; val bM = (displaySeconds % 3600) / 60; val bS = displaySeconds % 60
-                    Text(text = "⏱ 측정 중", color = Accent, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(text = "⏱ [$categoryDisplayStr] 측정 중", color = Accent, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = String.format("%02d:%02d:%02d", bH, bM, bS),
