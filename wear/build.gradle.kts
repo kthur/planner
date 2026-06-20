@@ -16,6 +16,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".wear"
+        }
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("debug")

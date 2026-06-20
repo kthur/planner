@@ -392,7 +392,7 @@ ADDED from [androidx.core:core:1.12.0] C:\Users\kyung\.gradle\caches\transforms-
 		ADDED from [androidx.core:core:1.12.0] C:\Users\kyung\.gradle\caches\transforms-3\483a72934ebcffddc6aec2527ab6b330\transformed\core-1.12.0\AndroidManifest.xml:24:9-44
 	android:name
 		ADDED from [androidx.core:core:1.12.0] C:\Users\kyung\.gradle\caches\transforms-3\483a72934ebcffddc6aec2527ab6b330\transformed\core-1.12.0\AndroidManifest.xml:23:9-81
-permission#com.planner.tracker.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+permission#com.planner.tracker.wear.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.12.0] C:\Users\kyung\.gradle\caches\transforms-3\483a72934ebcffddc6aec2527ab6b330\transformed\core-1.12.0\AndroidManifest.xml:22:5-24:47
 	android:protectionLevel
 		ADDED from [androidx.core:core:1.12.0] C:\Users\kyung\.gradle\caches\transforms-3\483a72934ebcffddc6aec2527ab6b330\transformed\core-1.12.0\AndroidManifest.xml:24:9-44
@@ -402,7 +402,7 @@ uses-permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.12.0] C:\Users\kyung\.gradle\caches\transforms-3\483a72934ebcffddc6aec2527ab6b330\transformed\core-1.12.0\AndroidManifest.xml:26:5-97
 	android:name
 		ADDED from [androidx.core:core:1.12.0] C:\Users\kyung\.gradle\caches\transforms-3\483a72934ebcffddc6aec2527ab6b330\transformed\core-1.12.0\AndroidManifest.xml:26:22-94
-uses-permission#com.planner.tracker.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+uses-permission#com.planner.tracker.wear.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.12.0] C:\Users\kyung\.gradle\caches\transforms-3\483a72934ebcffddc6aec2527ab6b330\transformed\core-1.12.0\AndroidManifest.xml:26:5-97
 	android:name
 		ADDED from [androidx.core:core:1.12.0] C:\Users\kyung\.gradle\caches\transforms-3\483a72934ebcffddc6aec2527ab6b330\transformed\core-1.12.0\AndroidManifest.xml:26:22-94

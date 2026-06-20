@@ -4,7 +4,7 @@
     "type": "PACKAGED_MANIFESTS",
     "kind": "Directory"
   },
-  "applicationId": "com.planner.tracker",
+  "applicationId": "com.planner.tracker.wear",
   "variantName": "debug",
   "elements": [
     {
