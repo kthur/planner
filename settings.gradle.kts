@@ -16,3 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Planner"
 include(":app")
+include(":wear")
+

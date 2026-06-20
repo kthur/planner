@@ -15,6 +15,7 @@ import com.planner.tracker.data.Entry
 import com.planner.tracker.data.Goal
 import com.planner.tracker.data.Repository
 import com.planner.tracker.data.CalendarSyncManager
+import com.planner.tracker.data.WearDataManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -96,6 +97,12 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         categories = repository.getAllCategories().stateIn(
             viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
         )
+
+        viewModelScope.launch {
+            categories.collect { catList ->
+                WearDataManager.syncCategories(application, catList)
+            }
+        }
 
         entriesForSelectedDate = _selectedDate.flatMapLatest { date ->
             val dayRange = Repository.getDayRange(date)
@@ -316,6 +323,17 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             ctx.startService(serviceIntent)
         }
 
+        WearDataManager.syncTrackingState(
+            context = ctx,
+            isTracking = true,
+            startElapsed = now,
+            targetSec = timerTargetSec,
+            note = note,
+            categories = categories,
+            categoryDisplays = categoryDisplays,
+            photoUri = photoUri
+        )
+
         trackingJob?.cancel()
         trackingJob = viewModelScope.launch {
             while (true) {
@@ -351,6 +369,18 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         _isTracking.value = false
         _alarmTriggered.value = false
         clearTrackingPrefs()
+
+        WearDataManager.syncTrackingState(
+            context = ctx,
+            isTracking = false,
+            startElapsed = 0L,
+            targetSec = 0,
+            note = "",
+            categories = emptySet(),
+            categoryDisplays = "",
+            photoUri = null
+        )
+
         if (minutes > 0 && categories.isNotEmpty()) {
             val dayRange = Repository.getDayRange(startWallClock)
             viewModelScope.launch {
@@ -388,6 +418,17 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         _isTracking.value = false
         _alarmTriggered.value = false
         clearTrackingPrefs()
+
+        WearDataManager.syncTrackingState(
+            context = ctx,
+            isTracking = false,
+            startElapsed = 0L,
+            targetSec = 0,
+            note = "",
+            categories = emptySet(),
+            categoryDisplays = "",
+            photoUri = null
+        )
     }
 
     fun updateTrackingNote(note: String) {
@@ -400,6 +441,25 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             putExtra(com.planner.tracker.TrackerService.EXTRA_NOTE, note)
         }
         ctx.startService(intent)
+
+        val isTracking = prefs.getBoolean("is_tracking", false)
+        val startElapsed = prefs.getLong("start_elapsed", 0L)
+        val targetSec = prefs.getInt("target_sec", 0)
+        val categoriesString = prefs.getString("categories", "") ?: ""
+        val categoriesSet = if (categoriesString.isEmpty()) emptySet() else categoriesString.split(",").toSet()
+        val categoryDisplays = prefs.getString("category_displays", "") ?: ""
+        val photoUri = prefs.getString("photo_uri", null)
+
+        WearDataManager.syncTrackingState(
+            context = ctx,
+            isTracking = isTracking,
+            startElapsed = startElapsed,
+            targetSec = targetSec,
+            note = note,
+            categories = categoriesSet,
+            categoryDisplays = categoryDisplays,
+            photoUri = photoUri
+        )
     }
 
     fun updateTrackingCategories(categories: Set<String>, categoryDisplays: String) {
@@ -411,6 +471,24 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             putExtra(com.planner.tracker.TrackerService.EXTRA_CATEGORY_DISPLAYS, categoryDisplays)
         }
         ctx.startService(intent)
+
+        val prefs = ctx.getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE)
+        val isTracking = prefs.getBoolean("is_tracking", false)
+        val startElapsed = prefs.getLong("start_elapsed", 0L)
+        val targetSec = prefs.getInt("target_sec", 0)
+        val note = prefs.getString("note", "") ?: ""
+        val photoUri = prefs.getString("photo_uri", null)
+
+        WearDataManager.syncTrackingState(
+            context = ctx,
+            isTracking = isTracking,
+            startElapsed = startElapsed,
+            targetSec = targetSec,
+            note = note,
+            categories = categories,
+            categoryDisplays = categoryDisplays,
+            photoUri = photoUri
+        )
     }
 
     private fun clearTrackingPrefs() {

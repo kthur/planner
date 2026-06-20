@@ -128,6 +128,16 @@ class TrackerService : Service() {
         _elapsedSeconds.value = 0
         getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE)
             .edit().clear().apply()
+        com.planner.tracker.data.WearDataManager.syncTrackingState(
+            context = this,
+            isTracking = false,
+            startElapsed = 0L,
+            targetSec = 0,
+            note = "",
+            categories = emptySet(),
+            categoryDisplays = "",
+            photoUri = null
+        )
     }
 
     private fun buildNotification(seconds: Long): Notification {

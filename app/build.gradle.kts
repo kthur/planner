@@ -76,6 +76,8 @@ dependencies {
 
     implementation("io.coil-kt:coil-compose:2.6.0")
 
+    implementation("com.google.android.gms:play-services-wearable:18.1.0")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
