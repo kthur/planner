@@ -55,6 +55,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.planner.tracker.data.Entry
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.TableChart
 import com.planner.tracker.ui.screens.GoalsScreen
 import com.planner.tracker.ui.screens.MainScreen
 import com.planner.tracker.ui.screens.StatsScreen
@@ -173,7 +174,22 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
             viewModel.exportDataAsJson { json ->
                 try {
                     ctx.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
-                    Toast.makeText(ctx, "내보내기 완료", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, "JSON 내보내기 완료", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(ctx, "내보내기 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    val csvExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.exportDataAsCsv { csv ->
+                try {
+                    ctx.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
+                    Toast.makeText(ctx, "CSV 내보내기 완료", Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {
                     Toast.makeText(ctx, "내보내기 실패: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
@@ -212,6 +228,10 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
 
     LaunchedEffect(selectedDate) {
         selectedStatsEntry = null
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.checkAndNotifyGoalReminder()
     }
 
     if (showStatsEditDialog) {
@@ -317,7 +337,8 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                                 }
                             } else {
                                 TextButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) { Text("복원", color = Accent) }
-                                IconButton(onClick = { exportLauncher.launch("planner_backup_${System.currentTimeMillis()}.json") }) { Icon(Icons.Default.Share, contentDescription = "내보내기", tint = Accent) }
+                                IconButton(onClick = { exportLauncher.launch("planner_backup_${System.currentTimeMillis()}.json") }) { Icon(Icons.Default.Share, contentDescription = "JSON 내보내기", tint = Accent) }
+                                IconButton(onClick = { csvExportLauncher.launch("planner_export_${System.currentTimeMillis()}.csv") }) { Icon(Icons.Default.TableChart, contentDescription = "CSV 내보내기", tint = Accent) }
                             }
                         }
                         2 -> {

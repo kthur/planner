@@ -209,6 +209,28 @@ fun StatsScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                     }
 
+                    if (stats.size > 1 && totalMinutes > 0) {
+                        Text(text = "카테고리별 비교", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val maxVal = stats.maxOfOrNull { it.totalMinutes } ?: 1
+                        stats.forEach { stat ->
+                            val catInfo = categoryMap[stat.category]
+                            val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
+                            val displayName = catInfo?.displayName ?: stat.category
+                            val barPct = stat.totalMinutes.toFloat() / maxVal
+                            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = displayName, modifier = Modifier.width(64.dp), color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.bodySmall)
+                                Spacer(Modifier.width(8.dp))
+                                Box(Modifier.weight(1f).height(18.dp).clip(RoundedCornerShape(4.dp)).background(color.copy(alpha = 0.12f))) {
+                                    Box(Modifier.fillMaxHeight().fillMaxWidth(barPct).clip(RoundedCornerShape(4.dp)).background(color))
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Text(text = "${stat.totalMinutes}분", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(50.dp), textAlign = TextAlign.End)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
                     stats.forEach { stat ->
                         val catInfo = categoryMap[stat.category]
                         val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent

@@ -1,5 +1,11 @@
 package com.planner.tracker.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -63,6 +69,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.planner.tracker.data.CategoryEntity
 import com.planner.tracker.data.Entry
@@ -573,7 +584,18 @@ fun MainScreen(
                     } else {
                         // 실시간 측정 모드
                         val h = elapsedSeconds / 3600; val m = (elapsedSeconds % 3600) / 60; val s = elapsedSeconds % 60
-                        Text(text = "⏱ ${String.format("%02d:%02d:%02d", h, m, s)}", color = Accent, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), textAlign = TextAlign.Center)
+                        val timerProgress = if (timerMinutes.toIntOrNull() ?: 0 > 0) elapsedSeconds.toFloat() / ((timerMinutes.toIntOrNull() ?: 1) * 60) else 0f
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                            if ((timerMinutes.toIntOrNull() ?: 0) > 0) {
+                                Canvas(modifier = Modifier.size(140.dp)) {
+                                    val stroke = 8f
+                                    val sz = this.size
+                                    drawArc(color = Accent.copy(alpha = 0.15f), startAngle = -90f, sweepAngle = 360f, useCenter = false, style = Stroke(width = stroke, cap = StrokeCap.Round), size = Size(sz.width - stroke, sz.height - stroke), topLeft = Offset(stroke / 2f, stroke / 2f))
+                                    drawArc(color = Accent, startAngle = -90f, sweepAngle = (timerProgress.coerceIn(0f, 1f) * 360f), useCenter = false, style = Stroke(width = stroke, cap = StrokeCap.Round), size = Size(sz.width - stroke, sz.height - stroke), topLeft = Offset(stroke / 2f, stroke / 2f))
+                                }
+                            }
+                            Text(text = "⏱ ${String.format("%02d:%02d:%02d", h, m, s)}", color = Accent, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineLarge)
+                        }
 
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(value = timerMinutes, onValueChange = { timerMinutes = it.filter { c -> c.isDigit() } }, label = { Text("알림 타이머 설정 (분)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), singleLine = true, enabled = !isTracking)

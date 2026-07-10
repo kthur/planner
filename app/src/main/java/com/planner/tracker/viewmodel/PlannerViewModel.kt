@@ -1,7 +1,10 @@
 package com.planner.tracker.viewmodel
 
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import androidx.core.app.NotificationCompat
 import android.content.Intent
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
@@ -32,6 +35,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.Calendar
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -264,6 +270,30 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             val finalEntry = tempEntry.copy(calendarEventId = eventId)
             val insertedId = repository.insertEntry(finalEntry)
             syncEntryToCloud(finalEntry.copy(id = insertedId))
+
+            // Firebase sharing if user belongs to a group and a photo is attached
+            val user = currentUserState.value
+            val profile = userProfileState.value
+            val groupId = profile?.groupId
+            if (groupId != null && user != null && photoUri != null) {
+                // Upload photo to Firebase Storage
+                val localUri = Uri.parse("file://${getApplication<Application>().filesDir}/photos/${photoUri}")
+                val uploadResult = CloudService.uploadPhoto(groupId, localUri)
+                val photoUrl = uploadResult.getOrNull()
+                // Prepare shared entry
+                val sharedEntry = CloudService.SharedEntry(
+                    id = java.util.UUID.randomUUID().toString(),
+                    category = category,
+                    minutes = minutes,
+                    note = note,
+                    photoUrl = photoUrl,
+                    userId = user.uid,
+                    userName = user.displayName ?: "",
+                    date = System.currentTimeMillis(),
+                    createdAt = System.currentTimeMillis()
+                )
+                CloudService.shareEntry(sharedEntry, groupId)
+            }
         }
     }
 
@@ -561,6 +591,54 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearAlarmTriggered() {
         _alarmTriggered.value = false
+    }
+
+    fun checkAndNotifyGoalReminder() {
+        val ctx = getApplication<Application>()
+        val prefs = ctx.getSharedPreferences("goal_reminder_prefs", Context.MODE_PRIVATE)
+        val lastNotifiedDay = prefs.getInt("last_notified_day", 0)
+        val today = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
+        if (today == lastNotifiedDay) return
+
+        viewModelScope.launch {
+            val goals = repository.getAllGoals().firstOrNull() ?: return@launch
+            val stats = monthlyStats.value
+            val statMap = stats.associate { it.category to it.totalMinutes }
+            val incomplete = goals.filter { !it.isCompleted && it.targetMinutes > 0 && (statMap[it.category] ?: 0) < it.targetMinutes }
+            if (incomplete.isEmpty()) return@launch
+
+            val notifManager = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channelId = "goal_reminder"
+            val channel = NotificationChannel(channelId, "목표 리마인더", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "달성하지 못한 목표를 알려줍니다"
+            }
+            notifManager.createNotificationChannel(channel)
+
+            val summary = incomplete.joinToString(", ") { it.category }
+            val notification = NotificationCompat.Builder(ctx, channelId)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle("목표 알림")
+                .setContentText("${incomplete.size}개의 목표를 달성하지 못했습니다: $summary")
+                .setStyle(NotificationCompat.BigTextStyle().bigText("${incomplete.size}개의 목표가 아직 달성되지 않았습니다.\n\n목표: $summary\n\n오늘 기록을 추가해보세요!"))
+                .setAutoCancel(true)
+                .build()
+
+            notifManager.notify(1001, notification)
+            prefs.edit().putInt("last_notified_day", today).apply()
+        }
+    }
+
+    fun exportDataAsCsv(onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val entries = repository.getEntriesBetweenOnce(0L, Long.MAX_VALUE)
+            val sb = StringBuilder()
+            sb.appendLine("date,category,minutes,count,entryType,note,startTime,endTime")
+            entries.forEach { e ->
+                val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(e.date))
+                sb.appendLine("${dateStr},${e.category},${e.minutes},${e.count},${e.entryType},\"${e.note.replace("\"", "\"\"")}\",${e.startTime},${e.endTime}")
+            }
+            onResult(sb.toString())
+        }
     }
 
     fun exportDataAsJson(onResult: (String) -> Unit) {

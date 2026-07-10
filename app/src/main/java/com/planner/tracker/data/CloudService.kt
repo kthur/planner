@@ -269,20 +269,34 @@ object CloudService {
 
     // Upload photo to Firebase Storage
     suspend fun uploadPhoto(groupId: String, localUri: Uri): Result<String> {
-        return suspendCancellableCoroutine<Result<String>> { continuation ->
-            val filename = "photo_${UUID.randomUUID()}.jpg"
-            val ref = storage.reference.child("groups/$groupId/photos/$filename")
+        val filename = "photo_${UUID.randomUUID()}.jpg"
+        val ref = storage.reference.child("groups/$groupId/photos/$filename")
+        return suspendCancellableCoroutine { continuation ->
             ref.putFile(localUri)
-                .addOnSuccessListener {
-                    ref.downloadUrl.addOnSuccessListener { downloadUri ->
-                        continuation.resume(Result.success(downloadUri.toString()))
-                    }.addOnFailureListener { e ->
-                        continuation.resume(Result.failure(e))
+                .continueWithTask { task ->
+                    if (!task.isSuccessful) {
+                        task.exception?.let { throw it }
                     }
+                    ref.downloadUrl
+                }
+                .addOnSuccessListener { uri ->
+                    continuation.resume(Result.success(uri.toString()))
                 }
                 .addOnFailureListener { e ->
                     continuation.resume(Result.failure(e))
                 }
+        }
+    }
+
+    // Upload shared entry to Firestore under group collection
+    suspend fun shareEntry(entry: SharedEntry, groupId: String): Result<Unit> {
+        return suspendCancellableCoroutine { continuation ->
+            firestore.collection("groups")
+                .document(groupId)
+                .collection("entries")
+                .add(entry)
+                .addOnSuccessListener { continuation.resume(Result.success(Unit)) }
+                .addOnFailureListener { e -> continuation.resume(Result.failure(e)) }
         }
     }
 

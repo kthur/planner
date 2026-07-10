@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -75,6 +76,8 @@ fun GoalsScreen(
     var editingGoal by remember { mutableStateOf<Goal?>(null) }
     var description by remember { mutableStateOf("") }
     var targetMinutes by remember { mutableStateOf("") }
+    var targetCount by remember { mutableStateOf("") }
+    var selectedPeriodType by remember { mutableStateOf("MONTHLY") }
     var selectedCategory by remember(categories) { mutableStateOf(categories.firstOrNull()?.name ?: "") }
     var deadlineMillis by remember { mutableLongStateOf(0L) }
     var deleteConfirmGoalId by remember { mutableStateOf<Long?>(null) }
@@ -85,6 +88,8 @@ fun GoalsScreen(
         editingGoal = null
         description = ""
         targetMinutes = ""
+        targetCount = ""
+        selectedPeriodType = "MONTHLY"
         selectedCategory = categories.firstOrNull()?.name ?: ""
         deadlineMillis = 0L
         showDialog = true
@@ -95,6 +100,8 @@ fun GoalsScreen(
         description = goal.description
         selectedCategory = goal.category
         targetMinutes = if (goal.targetMinutes > 0) goal.targetMinutes.toString() else ""
+        targetCount = if (goal.targetCount > 0) goal.targetCount.toString() else ""
+        selectedPeriodType = goal.periodType
         deadlineMillis = goal.deadline
         showDialog = true
     }
@@ -212,6 +219,16 @@ fun GoalsScreen(
                                 }
                             }
 
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                val periodLabel = when (goal.periodType) { "DAILY" -> "매일"; "WEEKLY" -> "매주"; else -> "매월" }
+                                Text(text = periodLabel, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                                if (goal.targetMinutes > 0) {
+                                    Text(text = "${goal.targetMinutes}분", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                                }
+                                if (goal.targetCount > 0) {
+                                    Text(text = "${goal.targetCount}회", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
                             if (targetMin > 0) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 LinearProgressIndicator(
@@ -266,10 +283,32 @@ fun GoalsScreen(
                         singleLine = true
                     )
                     Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        listOf("DAILY" to "일간", "WEEKLY" to "주간", "MONTHLY" to "월간").forEach { (type, label) ->
+                            val isSel = selectedPeriodType == type
+                            TextButton(
+                                onClick = { selectedPeriodType = type },
+                                colors = ButtonDefaults.textButtonColors(contentColor = if (isSel) Accent else MaterialTheme.colorScheme.onSurfaceVariant),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(label, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = targetMinutes,
                         onValueChange = { targetMinutes = it },
                         label = { Text("목표 시간 (분, 선택사항)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = targetCount,
+                        onValueChange = { targetCount = it },
+                        label = { Text("목표 횟수 (선택사항)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
@@ -298,6 +337,8 @@ fun GoalsScreen(
                         category = selectedCategory,
                         description = description,
                         targetMinutes = targetMinutes.toIntOrNull() ?: 0,
+                        targetCount = targetCount.toIntOrNull() ?: 0,
+                        periodType = selectedPeriodType,
                         deadline = deadlineMillis
                     )
                     onUpsertGoal(goal)
