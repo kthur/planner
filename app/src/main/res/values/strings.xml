@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Planner</string>
+    <string name="shortcut_record_label">빠른 기록</string>
+    <string name="shortcut_record_long">빠른 기록 추가</string>
+    <string name="shortcut_stats_label">통계</string>
+    <string name="shortcut_stats_long">통계 보기</string>
+    <string name="shortcut_goal_label">목표</string>
+    <string name="shortcut_goal_long">목표 관리</string>
 </resources>

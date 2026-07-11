@@ -21,6 +21,7 @@ import com.planner.tracker.data.Goal
 import com.planner.tracker.data.Repository
 import com.planner.tracker.data.CalendarSyncManager
 import com.planner.tracker.data.WearDataManager
+import com.planner.tracker.data.NetworkMonitor
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -136,6 +137,14 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             userProfileState.collect { profile ->
                 if (profile?.groupId != null) {
+                    syncUnsyncedEntries()
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            NetworkMonitor(application).isOnline.collect { online ->
+                if (online) {
                     syncUnsyncedEntries()
                 }
             }
@@ -828,6 +837,21 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    fun addReaction(entryId: String, emoji: String) {
+        val user = currentUserState.value ?: return
+        val profile = userProfileState.value ?: return
+        val groupId = profile.groupId ?: return
+
+        viewModelScope.launch {
+            CloudService.addReaction(
+                groupId = groupId,
+                entryId = entryId,
+                userId = user.uid,
+                emoji = emoji
+            )
         }
     }
 }

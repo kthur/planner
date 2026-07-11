@@ -4,24 +4,7 @@
             "outputFile": "com.planner.tracker.wear-mergeDebugResources-57:/values-en-rCA/values-en-rCA.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\kyung\\.gradle\\caches\\transforms-3\\ef9ff6efab5cbaa0614b22f73c9d9dc7\\transformed\\foundation-release\\res\\values-en-rCA\\values-en-rCA.xml",
-                    "from": {
-                        "startLines": "2,3",
-                        "startColumns": "4,4",
-                        "startOffsets": "55,141",
-                        "endColumns": "85,84",
-                        "endOffsets": "136,221"
-                    },
-                    "to": {
-                        "startLines": "27,28",
-                        "startColumns": "4,4",
-                        "startOffsets": "2347,2433",
-                        "endColumns": "85,84",
-                        "endOffsets": "2428,2513"
-                    }
-                },
-                {
-                    "source": "C:\\Users\\kyung\\.gradle\\caches\\transforms-3\\483a72934ebcffddc6aec2527ab6b330\\transformed\\core-1.12.0\\res\\values-en-rCA\\values-en-rCA.xml",
+                    "source": "C:\\Users\\kyung\\.gradle\\caches\\transforms-3\\6c372a2e156ccb70b3faf76c5b728d3e\\transformed\\core-1.12.0\\res\\values-en-rCA\\values-en-rCA.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9",
                         "startColumns": "4,4,4,4,4,4,4,4",
@@ -38,7 +21,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\kyung\\.gradle\\caches\\transforms-3\\5a92c10ca1c29d6495f7d32464fab2c4\\transformed\\ui-release\\res\\values-en-rCA\\values-en-rCA.xml",
+                    "source": "C:\\Users\\kyung\\.gradle\\caches\\transforms-3\\b24da72ac5b056aec98ec1b68a53ff55\\transformed\\ui-release\\res\\values-en-rCA\\values-en-rCA.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
@@ -52,6 +35,23 @@
                         "startOffsets": "823,915,997,1091,1190,1276,1358,1448,1537,1621,1686,1750,1828,1910,2084,2161,2227",
                         "endColumns": "91,81,93,98,85,81,89,88,83,64,63,77,81,72,76,65,119",
                         "endOffsets": "910,992,1086,1185,1271,1353,1443,1532,1616,1681,1745,1823,1905,1978,2156,2222,2342"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\kyung\\.gradle\\caches\\transforms-3\\bea4c4e7b7a09586662093487c78eb00\\transformed\\foundation-release\\res\\values-en-rCA\\values-en-rCA.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,141",
+                        "endColumns": "85,84",
+                        "endOffsets": "136,221"
+                    },
+                    "to": {
+                        "startLines": "27,28",
+                        "startColumns": "4,4",
+                        "startOffsets": "2347,2433",
+                        "endColumns": "85,84",
+                        "endOffsets": "2428,2513"
                     }
                 }
             ]

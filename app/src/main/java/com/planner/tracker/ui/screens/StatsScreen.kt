@@ -1,5 +1,6 @@
 package com.planner.tracker.ui.screens
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,26 +32,33 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import kotlin.math.cos
-import kotlin.math.sin
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -59,18 +67,21 @@ import com.planner.tracker.data.CategoryStat
 import com.planner.tracker.data.DailyCategoryStat
 import com.planner.tracker.data.DailyStat
 import com.planner.tracker.data.Entry
+import com.planner.tracker.ui.components.EntryCard
 import com.planner.tracker.ui.theme.Accent
 import com.planner.tracker.ui.theme.CardBackground
 import com.planner.tracker.ui.theme.TextPrimary
 import com.planner.tracker.ui.theme.TextSecondary
-import androidx.compose.material3.OutlinedTextField
-import com.planner.tracker.ui.components.EntryCard
 import com.planner.tracker.ui.theme.categoryColorFromHex
+import kotlin.math.cos
+import kotlin.math.sin
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatsScreen(
     categories: List<CategoryEntity>,
@@ -90,13 +101,16 @@ fun StatsScreen(
     onNavigateToGoals: () -> Unit,
     selectedEntry: Entry? = null,
     onSelectEntry: (Entry?) -> Unit = {},
-    onUpdateEntry: (Entry) -> Unit = {}
+    onUpdateEntry: (Entry) -> Unit = {},
+    onDeleteEntry: (Entry) -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var year by remember(currentYear) { mutableIntStateOf(currentYear) }
     var month by remember(currentMonth) { mutableIntStateOf(currentMonth) }
     var selectedDay by remember(selectedDate) { mutableLongStateOf(selectedDate) }
     var searchQuery by remember { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val tabs = listOf("일간", "주간", "월간")
 
     val categoryMap = remember(categories) { categories.associateBy { it.name } }
@@ -107,262 +121,296 @@ fun StatsScreen(
         else -> monthlyStats
     }
 
-        Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())
+    Box(
+        modifier = Modifier.fillMaxSize().padding(16.dp)
     ) {
-        TabRow(selectedTabIndex = selectedTab) {
-            tabs.forEachIndexed { index, title ->
-                Tab(selected = selectedTab == index, onClick = { selectedTab = index }, text = { Text(title) })
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        when (selectedTab) {
-            0 -> {
-                val cal = remember { Calendar.getInstance() }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.DAY_OF_MONTH, -1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronLeft, "이전 날", tint = MaterialTheme.colorScheme.onBackground) }
-                    Text(text = SimpleDateFormat("yyyy년 M월 d일 (E)", Locale.KOREAN).format(Date(selectedDay)), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
-                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.DAY_OF_MONTH, 1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronRight, "다음 날", tint = MaterialTheme.colorScheme.onBackground) }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // 12시간 시계 항상 표시
-                if (dailyEntries.isNotEmpty()) {
-                    DailyClockView(entries = dailyEntries, categoryMap = categoryMap)
-                    Spacer(modifier = Modifier.height(16.dp))
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+        ) {
+            TabRow(selectedTabIndex = selectedTab) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(selected = selectedTab == index, onClick = { selectedTab = index }, text = { Text(title) })
                 }
             }
-            1 -> {
-                val cal = remember { Calendar.getInstance() }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.WEEK_OF_YEAR, -1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronLeft, "이전 주", tint = MaterialTheme.colorScheme.onBackground) }
-                    Text(
-                        text = {
-                            cal.timeInMillis = selectedDay
-                            cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-                            val start = cal.timeInMillis
-                            cal.add(Calendar.DAY_OF_WEEK, 6)
-                            val end = cal.timeInMillis
-                            val fmt = SimpleDateFormat("M/d", Locale.KOREAN)
-                            "${fmt.format(Date(start))} - ${fmt.format(Date(end))}"
-                        }(),
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                    IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.WEEK_OF_YEAR, 1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronRight, "다음 주", tint = MaterialTheme.colorScheme.onBackground) }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-            2 -> {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                    IconButton(onClick = { month--; if (month < 1) { month = 12; year-- }; onMonthChange(year, month) }) { Icon(Icons.Default.ChevronLeft, "이전 달", tint = MaterialTheme.colorScheme.onBackground) }
-                    Text(text = "${year}년 ${month}월", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
-                    IconButton(onClick = { month++; if (month > 12) { month = 1; year++ }; onMonthChange(year, month) }) { Icon(Icons.Default.ChevronRight, "다음 달", tint = MaterialTheme.colorScheme.onBackground) }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                MonthCalendar(year = year, month = month, dailyCategoryMap = monthlyDailyCategoryMap, categoryMap = categoryMap, onDateClick = { millis -> selectedDay = millis; onDateSelected(millis) })
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-        }
 
-        if (stats.isEmpty()) {
-            Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("📊", style = MaterialTheme.typography.displaySmall)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(text = "통계 데이터가 없습니다", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = "기록 탭에서 활동을 추가하면\n여기에 통계가 표시됩니다", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        } else {
-            val totalMinutes = stats.sumOf { it.totalMinutes }
-            val totalCount = stats.sumOf { it.totalCount }
+            Spacer(modifier = Modifier.height(12.dp))
 
-            Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    val summaryText = buildString {
-                        if (totalMinutes > 0) {
-                            append("총 ${totalMinutes}분 (${totalMinutes / 60}시간 ${totalMinutes % 60}분)")
-                            if (totalCount > 0) append(" / ")
-                        }
-                        if (totalCount > 0) append("${totalCount}회")
+            when (selectedTab) {
+                0 -> {
+                    val cal = remember { Calendar.getInstance() }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                        IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.DAY_OF_MONTH, -1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronLeft, "이전 날", tint = MaterialTheme.colorScheme.onBackground) }
+                        Text(text = SimpleDateFormat("yyyy년 M월 d일 (E)", Locale.KOREAN).format(Date(selectedDay)), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
+                        IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.DAY_OF_MONTH, 1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronRight, "다음 날", tint = MaterialTheme.colorScheme.onBackground) }
                     }
-                    Text(text = summaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    if (totalMinutes > 0) {
-                        val strokeWidth = 40f
-                        Canvas(modifier = Modifier.size(200.dp)) {
-                            val canvasSize = size
-                            val padding = strokeWidth / 2f
-                            var startAngle = -90f
-                            stats.forEach { stat ->
-                                val sweepAngle = (stat.totalMinutes.toFloat() / totalMinutes) * 360f
-                                val catColor = categoryMap[stat.category]?.let { categoryColorFromHex(it.colorHex) } ?: Accent
-                                drawArc(color = catColor, startAngle = startAngle, sweepAngle = sweepAngle, useCenter = false, style = Stroke(width = strokeWidth, cap = StrokeCap.Butt), size = Size(canvasSize.width - strokeWidth, canvasSize.height - strokeWidth), topLeft = Offset(padding, padding))
-                                startAngle += sweepAngle
-                            }
-                        }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (dailyEntries.isNotEmpty()) {
+                        DailyClockView(entries = dailyEntries, categoryMap = categoryMap)
                         Spacer(modifier = Modifier.height(16.dp))
                     }
+                }
+                1 -> {
+                    val cal = remember { Calendar.getInstance() }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                        IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.WEEK_OF_YEAR, -1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronLeft, "이전 주", tint = MaterialTheme.colorScheme.onBackground) }
+                        Text(
+                            text = {
+                                cal.timeInMillis = selectedDay
+                                cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                                val start = cal.timeInMillis
+                                cal.add(Calendar.DAY_OF_WEEK, 6)
+                                val end = cal.timeInMillis
+                                val fmt = SimpleDateFormat("M/d", Locale.KOREAN)
+                                "${fmt.format(Date(start))} - ${fmt.format(Date(end))}"
+                            }(),
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.WEEK_OF_YEAR, 1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronRight, "다음 주", tint = MaterialTheme.colorScheme.onBackground) }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                2 -> {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                        IconButton(onClick = { month--; if (month < 1) { month = 12; year-- }; onMonthChange(year, month) }) { Icon(Icons.Default.ChevronLeft, "이전 달", tint = MaterialTheme.colorScheme.onBackground) }
+                        Text(text = "${year}년 ${month}월", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
+                        IconButton(onClick = { month++; if (month > 12) { month = 1; year++ }; onMonthChange(year, month) }) { Icon(Icons.Default.ChevronRight, "다음 달", tint = MaterialTheme.colorScheme.onBackground) }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    MonthCalendar(year = year, month = month, dailyCategoryMap = monthlyDailyCategoryMap, categoryMap = categoryMap, onDateClick = { millis -> selectedDay = millis; onDateSelected(millis) })
+                    Spacer(modifier = Modifier.height(16.dp))
+                    if (monthlyDailyStats.isNotEmpty()) {
+                        HeatmapCalendar(monthlyDailyStats = monthlyDailyStats)
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
+            }
 
-                    if (stats.size > 1 && totalMinutes > 0) {
-                        Text(text = "카테고리별 비교", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        val maxVal = stats.maxOfOrNull { it.totalMinutes } ?: 1
+            if (stats.isEmpty()) {
+                Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("📊", style = MaterialTheme.typography.displaySmall)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(text = "통계 데이터가 없습니다", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(text = "기록 탭에서 활동을 추가하면\n여기에 통계가 표시됩니다", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            } else {
+                val totalMinutes = stats.sumOf { it.totalMinutes }
+                val totalCount = stats.sumOf { it.totalCount }
+
+                Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        val summaryText = buildString {
+                            if (totalMinutes > 0) {
+                                append("총 ${totalMinutes}분 (${totalMinutes / 60}시간 ${totalMinutes % 60}분)")
+                                if (totalCount > 0) append(" / ")
+                            }
+                            if (totalCount > 0) append("${totalCount}회")
+                        }
+                        Text(text = summaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (totalMinutes > 0) {
+                            val strokeWidth = 40f
+                            Canvas(modifier = Modifier.size(200.dp)) {
+                                val canvasSize = size
+                                val padding = strokeWidth / 2f
+                                var startAngle = -90f
+                                stats.forEach { stat ->
+                                    val sweepAngle = (stat.totalMinutes.toFloat() / totalMinutes) * 360f
+                                    val catColor = categoryMap[stat.category]?.let { categoryColorFromHex(it.colorHex) } ?: Accent
+                                    drawArc(color = catColor, startAngle = startAngle, sweepAngle = sweepAngle, useCenter = false, style = Stroke(width = strokeWidth, cap = StrokeCap.Butt), size = Size(canvasSize.width - strokeWidth, canvasSize.height - strokeWidth), topLeft = Offset(padding, padding))
+                                    startAngle += sweepAngle
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+
+                        if (stats.size > 1 && totalMinutes > 0) {
+                            Text(text = "카테고리별 비교", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            val maxVal = stats.maxOfOrNull { it.totalMinutes } ?: 1
+                            stats.forEach { stat ->
+                                val catInfo = categoryMap[stat.category]
+                                val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
+                                val displayName = catInfo?.displayName ?: stat.category
+                                val barPct = stat.totalMinutes.toFloat() / maxVal
+                                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(text = displayName, modifier = Modifier.width(64.dp), color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.bodySmall)
+                                    Spacer(Modifier.width(8.dp))
+                                    Box(Modifier.weight(1f).height(18.dp).clip(RoundedCornerShape(4.dp)).background(color.copy(alpha = 0.12f))) {
+                                        Box(Modifier.fillMaxHeight().fillMaxWidth(barPct).clip(RoundedCornerShape(4.dp)).background(color))
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(text = "${stat.totalMinutes}분", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(50.dp), textAlign = TextAlign.End)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+
                         stats.forEach { stat ->
                             val catInfo = categoryMap[stat.category]
                             val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
                             val displayName = catInfo?.displayName ?: stat.category
-                            val barPct = stat.totalMinutes.toFloat() / maxVal
-                            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(text = displayName, modifier = Modifier.width(64.dp), color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.bodySmall)
-                                Spacer(Modifier.width(8.dp))
-                                Box(Modifier.weight(1f).height(18.dp).clip(RoundedCornerShape(4.dp)).background(color.copy(alpha = 0.12f))) {
-                                    Box(Modifier.fillMaxHeight().fillMaxWidth(barPct).clip(RoundedCornerShape(4.dp)).background(color))
-                                }
-                                Spacer(Modifier.width(8.dp))
-                                Text(text = "${stat.totalMinutes}분", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(50.dp), textAlign = TextAlign.End)
+                            val valueText = buildString {
+                                if (stat.totalMinutes > 0) append("${stat.totalMinutes}분")
+                                if (stat.totalMinutes > 0 && stat.totalCount > 0) append(" / ")
+                                if (stat.totalCount > 0) append("${stat.totalCount}회")
                             }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-
-                    stats.forEach { stat ->
-                        val catInfo = categoryMap[stat.category]
-                        val color = if (catInfo != null) categoryColorFromHex(catInfo.colorHex) else Accent
-                        val displayName = catInfo?.displayName ?: stat.category
-                        val valueText = buildString {
-                            if (stat.totalMinutes > 0) append("${stat.totalMinutes}분")
-                            if (stat.totalMinutes > 0 && stat.totalCount > 0) append(" / ")
-                            if (stat.totalCount > 0) append("${stat.totalCount}회")
-                        }
-                        val pctText = if (totalMinutes > 0) String.format("%.1f%%", stat.totalMinutes.toFloat() / totalMinutes * 100) else ""
-                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(12.dp).clip(CircleShape).background(color))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = displayName, modifier = Modifier.width(80.dp), color = MaterialTheme.colorScheme.onBackground)
-                            Text(text = valueText, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (pctText.isNotEmpty()) {
-                                Text(text = pctText, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, modifier = Modifier.width(60.dp), textAlign = TextAlign.End)
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (selectedTab == 0 && dailyEntries.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = "상세 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("검색...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodySmall
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        val filteredEntries = remember(dailyEntries, searchQuery) {
-                            if (searchQuery.isBlank()) dailyEntries
-                            else dailyEntries.filter { e ->
-                                val disp = categoryMap[e.category]?.displayName ?: e.category
-                                e.note.contains(searchQuery, ignoreCase = true) || disp.contains(searchQuery, ignoreCase = true)
-                            }
-                        }
-
-                        if (filteredEntries.isEmpty()) {
-                            Text(
-                                text = "검색 결과가 없습니다.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(vertical = 12.dp)
-                            )
-                        } else {
-                            filteredEntries.forEach { entry ->
-                                val isSelected = selectedEntry?.id == entry.id
-                                EntryCard(
-                                    entry = entry,
-                                    categoryInfo = categoryMap,
-                                    isSelected = isSelected,
-                                    onToggleSelect = {
-                                        if (isSelected) onSelectEntry(null) else onSelectEntry(entry)
-                                    },
-                                    onIncrement = if (entry.count > 0) {{ onUpdateEntry(entry.copy(count = entry.count + 1)) }} else null,
-                                    onDecrement = if (entry.count > 0 && entry.count > 1) {{ onUpdateEntry(entry.copy(count = entry.count - 1)) }} else null,
-                                    modifier = Modifier.clickable {
-                                        if (isSelected) onSelectEntry(null) else onSelectEntry(entry)
-                                    }.padding(vertical = 4.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            if (selectedTab == 1 && weeklyDailyCategoryStats.isNotEmpty()) {
-                val dayFormat = remember { SimpleDateFormat("E", Locale.KOREAN) }
-                val dailyTotals = weeklyDailyStats.associate { it.date to (it.totalMinutes + it.totalCount) }
-                Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(text = "일별 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        val grouped = weeklyDailyCategoryStats.groupBy { it.date }.mapValues { (_, stats) ->
-                            stats.sortedBy { it.category }
-                        }
-                        grouped.forEach { (date, catStats) ->
-                            val dayTotal = dailyTotals[date] ?: catStats.sumOf { it.totalMinutes + it.totalCount }
-                            val dayName = dayFormat.format(Date(date))
+                            val pctText = if (totalMinutes > 0) String.format("%.1f%%", stat.totalMinutes.toFloat() / totalMinutes * 100) else ""
                             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(text = dayName, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.width(40.dp))
+                                Box(Modifier.size(12.dp).clip(CircleShape).background(color))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Box(Modifier.weight(1f).height(24.dp).clip(RoundedCornerShape(4.dp)).background(Accent.copy(alpha = 0.12f))) {
-                                    if (dayTotal > 0) {
-                                        Row(Modifier.fillMaxSize()) {
-                                            catStats.forEach { stat ->
-                                                val barCatInfo = categoryMap[stat.category]
-                                                val barColor = if (barCatInfo != null) categoryColorFromHex(barCatInfo.colorHex) else Accent
-                                                val barValue = stat.totalMinutes + stat.totalCount
-                                                Box(
-                                                    Modifier.fillMaxHeight().weight(barValue.toFloat() / dayTotal)
-                                                        .background(barColor),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    val barLabel = buildString {
-                                                        if (stat.totalMinutes >= 15) append("${stat.totalMinutes}분")
-                                                        if (stat.totalMinutes >= 15 && stat.totalCount > 0) append(" ")
-                                                        if (stat.totalCount >= 5) append("${stat.totalCount}회")
+                                Text(text = displayName, modifier = Modifier.width(80.dp), color = MaterialTheme.colorScheme.onBackground)
+                                Text(text = valueText, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (pctText.isNotEmpty()) {
+                                    Text(text = pctText, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, modifier = Modifier.width(60.dp), textAlign = TextAlign.End)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (selectedTab == 0 && dailyEntries.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(text = "상세 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("검색...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodySmall
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            val filteredEntries = remember(dailyEntries, searchQuery) {
+                                if (searchQuery.isBlank()) dailyEntries
+                                else dailyEntries.filter { e ->
+                                    val disp = categoryMap[e.category]?.displayName ?: e.category
+                                    e.note.contains(searchQuery, ignoreCase = true) || disp.contains(searchQuery, ignoreCase = true)
+                                }
+                            }
+
+                            if (filteredEntries.isEmpty()) {
+                                Text(
+                                    text = "검색 결과가 없습니다.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(vertical = 12.dp)
+                                )
+                            } else {
+                                filteredEntries.forEach { entry ->
+                                    val isSelected = selectedEntry?.id == entry.id
+                                    val dismissState = rememberSwipeToDismissBoxState(
+                                        confirmValueChange = { value ->
+                                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                                onDeleteEntry(entry)
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "삭제되었습니다",
+                                                        actionLabel = "실행취소"
+                                                    )
+                                                }
+                                                true
+                                            } else false
+                                        }
+                                    )
+                                    SwipeToDismissBox(
+                                        state = dismissState,
+                                        backgroundContent = {
+                                            val color by animateColorAsState(
+                                                targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) MaterialTheme.colorScheme.errorContainer else Color.Transparent,
+                                                label = "swipe_color"
+                                            )
+                                            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(color))
+                                        },
+                                        enableDismissFromStartToEnd = false,
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    ) {
+                                        EntryCard(
+                                            entry = entry,
+                                            categoryInfo = categoryMap,
+                                            isSelected = isSelected,
+                                            onToggleSelect = {
+                                                if (isSelected) onSelectEntry(null) else onSelectEntry(entry)
+                                            },
+                                            onIncrement = if (entry.count > 0) {{ onUpdateEntry(entry.copy(count = entry.count + 1)) }} else null,
+                                            onDecrement = if (entry.count > 0 && entry.count > 1) {{ onUpdateEntry(entry.copy(count = entry.count - 1)) }} else null,
+                                            modifier = Modifier.clickable {
+                                                if (isSelected) onSelectEntry(null) else onSelectEntry(entry)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                if (selectedTab == 1 && weeklyDailyCategoryStats.isNotEmpty()) {
+                    val dayFormat = remember { SimpleDateFormat("E", Locale.KOREAN) }
+                    val dailyTotals = weeklyDailyStats.associate { it.date to (it.totalMinutes + it.totalCount) }
+                    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(text = "일별 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            val grouped = weeklyDailyCategoryStats.groupBy { it.date }.mapValues { (_, stats) ->
+                                stats.sortedBy { it.category }
+                            }
+                            grouped.forEach { (date, catStats) ->
+                                val dayTotal = dailyTotals[date] ?: catStats.sumOf { it.totalMinutes + it.totalCount }
+                                val dayName = dayFormat.format(Date(date))
+                                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(text = dayName, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.width(40.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Box(Modifier.weight(1f).height(24.dp).clip(RoundedCornerShape(4.dp)).background(Accent.copy(alpha = 0.12f))) {
+                                        if (dayTotal > 0) {
+                                            Row(Modifier.fillMaxSize()) {
+                                                catStats.forEach { stat ->
+                                                    val barCatInfo = categoryMap[stat.category]
+                                                    val barColor = if (barCatInfo != null) categoryColorFromHex(barCatInfo.colorHex) else Accent
+                                                    val barValue = stat.totalMinutes + stat.totalCount
+                                                    Box(
+                                                        Modifier.fillMaxHeight().weight(barValue.toFloat() / dayTotal)
+                                                            .background(barColor),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        val barLabel = buildString {
+                                                            if (stat.totalMinutes >= 15) append("${stat.totalMinutes}분")
+                                                            if (stat.totalMinutes >= 15 && stat.totalCount > 0) append(" ")
+                                                            if (stat.totalCount >= 5) append("${stat.totalCount}회")
+                                                        }
+                                                        if (barLabel.isNotEmpty()) Text(barLabel, color = MaterialTheme.colorScheme.onBackground, fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Bold)
                                                     }
-                                                    if (barLabel.isNotEmpty()) Text(barLabel, color = MaterialTheme.colorScheme.onBackground, fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                         }
                                     }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    val dayTotalText = buildString {
+                                        val dayTotalMin = catStats.sumOf { it.totalMinutes }
+                                        val dayTotalCount = catStats.sumOf { it.totalCount }
+                                        if (dayTotalMin > 0) append("${dayTotalMin}분")
+                                        if (dayTotalMin > 0 && dayTotalCount > 0) append(" ")
+                                        if (dayTotalCount > 0) append("${dayTotalCount}회")
+                                    }
+                                    Text(text = dayTotalText, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(60.dp), textAlign = TextAlign.End)
                                 }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                val dayTotalText = buildString {
-                                    val dayTotalMin = catStats.sumOf { it.totalMinutes }
-                                    val dayTotalCount = catStats.sumOf { it.totalCount }
-                                    if (dayTotalMin > 0) append("${dayTotalMin}분")
-                                    if (dayTotalMin > 0 && dayTotalCount > 0) append(" ")
-                                    if (dayTotalCount > 0) append("${dayTotalCount}회")
-                                }
-                                Text(text = dayTotalText, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(60.dp), textAlign = TextAlign.End)
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
+        SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -416,7 +464,6 @@ private fun DailyClockView(
                     )
                 }
 
-                // 시간 눈금 (파이 위에 표시)
                 for (i in 0 until 12) {
                     val angle = Math.toRadians((i * 30 - 90).toDouble())
                     val outerX = cx + (radius * cos(angle)).toFloat()
@@ -541,6 +588,84 @@ private fun MonthCalendar(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeatmapCalendar(monthlyDailyStats: List<DailyStat>) {
+    val cal = remember { Calendar.getInstance() }
+    val dayNames = listOf("", "월", "", "수", "", "금", "")
+
+    val maxVal = monthlyDailyStats.maxOfOrNull { it.totalMinutes + it.totalCount } ?: 1
+
+    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(text = "히트맵", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                dayNames.forEach { name ->
+                    Text(text = name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+
+            val firstEntry = monthlyDailyStats.minByOrNull { it.date }?.let { Date(it.date) }
+            if (firstEntry != null) {
+                cal.time = firstEntry
+            }
+            val startCal = cal.clone() as Calendar
+            startCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            val endCal = cal.clone() as Calendar
+            endCal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
+            endCal.add(Calendar.WEEK_OF_YEAR, 4)
+
+            val dailyMap = monthlyDailyStats.associate { it.date to (it.totalMinutes + it.totalCount) }
+
+            var week = 0
+            var currentCal = startCal.clone() as Calendar
+            while (currentCal.timeInMillis <= endCal.timeInMillis && week < 6) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    for (dow in 0 until 7) {
+                        val millis = currentCal.timeInMillis
+                        val value = dailyMap[millis] ?: 0
+                        val intensity = if (maxVal > 0) (value.toFloat() / maxVal) else 0f
+                        val color = when {
+                            value == 0 -> MaterialTheme.colorScheme.surfaceVariant
+                            intensity < 0.25f -> Accent.copy(alpha = 0.2f)
+                            intensity < 0.5f -> Accent.copy(alpha = 0.4f)
+                            intensity < 0.75f -> Accent.copy(alpha = 0.6f)
+                            else -> Accent.copy(alpha = 0.85f)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(color),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = currentCal.get(Calendar.DAY_OF_MONTH).toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (value > 0) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        }
+                        currentCal.add(Calendar.DAY_OF_WEEK, 1)
+                    }
+                }
+                week++
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                Text(text = "적음", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Box(Modifier.size(12.dp).clip(RoundedCornerShape(2.dp)).background(Accent.copy(alpha = 0.2f)))
+                Box(Modifier.size(12.dp).clip(RoundedCornerShape(2.dp)).background(Accent.copy(alpha = 0.4f)))
+                Box(Modifier.size(12.dp).clip(RoundedCornerShape(2.dp)).background(Accent.copy(alpha = 0.6f)))
+                Box(Modifier.size(12.dp).clip(RoundedCornerShape(2.dp)).background(Accent.copy(alpha = 0.85f)))
+                Text(text = "많음", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

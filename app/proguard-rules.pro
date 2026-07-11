@@ -1,40 +1,37 @@
--keepclassmembers class * extends androidx.room.RoomDatabase {
-    abstract <methods>;
-}
+# Planner ProGuard Rules
 
+# Firebase
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+
+# Room
 -keep class * extends androidx.room.RoomDatabase
 -keep @androidx.room.Entity class *
--keep @androidx.room.Dao class *
 -dontwarn androidx.room.paging.**
 
--keepattributes *Annotation*, InnerClasses
--dontnote kotlinx.serialization.AnnotationsKt
+# Coil
+-keep class coil.** { *; }
+-dontwarn coil.**
 
--keepclassmembers class kotlin.Metadata {
-    public <methods>;
-}
+# Wearable
+-keep class com.google.android.gms.wearable.** { *; }
+-dontwarn com.google.android.gms.wearable.**
 
--keep class kotlin.reflect.** { *; }
+# Kotlin Coroutines
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-keepclassmembers class kotlinx.coroutines.** { volatile <fields>; }
 
--keepclasseswithmembernames class * {
-    native <methods>;
-}
+# Compose
+-dontwarn androidx.compose.**
 
--keepclassmembers enum * {
-    public static **[] values();
-    public static ** valueOf(java.lang.String);
-}
-
+# Keep data classes for JSON serialization
 -keep class com.planner.tracker.data.** { *; }
+-keep class com.planner.tracker.widget.** { *; }
 
--keepclassmembers class * {
-    @androidx.compose.runtime.Immutable <fields>;
-    @androidx.compose.runtime.Stable <fields>;
-}
-
--dontwarn javax.annotation.**
--dontwarn kotlin.Unit
--dontwarn retrofit2.KotlinExtensions
--dontwarn retrofit2.KotlinExtensions$*
-
--keep,includedescriptorclasses class com.planner.tracker.** { *; }
+# Keep Service classes
+-keep class com.planner.tracker.TrackerService { *; }
+-keep class com.planner.tracker.PlannerFirebaseMessagingService { *; }
+-keep class com.planner.tracker.WearService { *; }

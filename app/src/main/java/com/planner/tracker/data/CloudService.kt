@@ -45,7 +45,8 @@ object CloudService {
         val userId: String = "",
         val userName: String = "",
         val date: Long = 0,
-        val createdAt: Long = 0
+        val createdAt: Long = 0,
+        val reactions: Map<String, String> = emptyMap()
     )
 
     // Auth Flows
@@ -361,6 +362,21 @@ object CloudService {
             }
         }
         awaitClose { registration.remove() }
+    }
+
+    // Add reaction to a shared entry
+    suspend fun addReaction(groupId: String, entryId: String, userId: String, emoji: String): Result<Unit> {
+        return suspendCancellableCoroutine { continuation ->
+            val docRef = firestore.collection("groups").document(groupId)
+                .collection("entries").document(entryId)
+            docRef.update("reactions.$userId", emoji)
+                .addOnSuccessListener {
+                    continuation.resume(Result.success(Unit))
+                }
+                .addOnFailureListener { e ->
+                    continuation.resume(Result.failure(e))
+                }
+        }
     }
 
     // Helper: Generate a unique 6-digit uppercase code (e.g. GP-XXXXXX)

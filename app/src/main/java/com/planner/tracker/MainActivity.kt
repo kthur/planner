@@ -406,7 +406,8 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     onNavigateToGoals = { selectedTab = 2 },
                     selectedEntry = selectedStatsEntry,
                     onSelectEntry = { selectedStatsEntry = it },
-                    onUpdateEntry = { viewModel.updateEntry(it) }
+                    onUpdateEntry = { viewModel.updateEntry(it) },
+                    onDeleteEntry = { viewModel.deleteEntry(it) }
                 )
                 2 -> GoalsScreen(
                     categories = categories,
