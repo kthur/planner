@@ -150,6 +150,14 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             }
         }
 
+        viewModelScope.launch {
+            val todayRange = Repository.getDayRange(System.currentTimeMillis())
+            repository.getEntriesByDate(todayRange.first).collect { todayEntries ->
+                val totalMinutes = todayEntries.sumOf { it.minutes }
+                WearDataManager.syncTodayTotalMinutes(application, totalMinutes)
+            }
+        }
+
         entriesForSelectedDate = _selectedDate.flatMapLatest { date ->
             val dayRange = Repository.getDayRange(date)
             repository.getEntriesByDate(dayRange.first)

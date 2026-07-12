@@ -71,4 +71,19 @@ object WearDataManager {
             }
         }
     }
+
+    fun syncTodayTotalMinutes(context: Context, totalMinutes: Int) {
+        scope.launch {
+            try {
+                val request = PutDataMapRequest.create("/today_total_minutes").apply {
+                    dataMap.putInt("total_minutes", totalMinutes)
+                    dataMap.putLong("timestamp", System.currentTimeMillis())
+                }
+                Wearable.getDataClient(context).putDataItem(request.asPutDataRequest())
+                Log.d(TAG, "Successfully synced today total minutes: $totalMinutes")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error syncing today total minutes to wear", e)
+            }
+        }
+    }
 }

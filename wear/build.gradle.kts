@@ -68,5 +68,9 @@ dependencies {
     // Wearable Data Layer API
     implementation("com.google.android.gms:play-services-wearable:18.1.0")
 
+    implementation("androidx.wear.tiles:tiles:1.2.0")
+    implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.1.1")
+    implementation("com.google.guava:guava:31.1-android")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
