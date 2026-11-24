@@ -26,6 +26,9 @@ class Repository(
     fun getDailyStatsInRange(start: Long, end: Long): Flow<List<DailyStat>> =
         entryDao.getDailyStatsInRange(start, end)
 
+    fun getDailyCategoryStatsInRange(start: Long, end: Long): Flow<List<DailyCategoryStat>> =
+        entryDao.getDailyCategoryStatsInRange(start, end)
+
     suspend fun insertEntry(entry: Entry): Long = entryDao.insert(entry)
 
     suspend fun updateEntry(entry: Entry) = entryDao.update(entry)
@@ -60,6 +63,11 @@ class Repository(
     suspend fun upsertCategory(category: CategoryEntity) = categoryDao.upsert(category)
 
     suspend fun deleteCategory(name: String) = categoryDao.delete(name)
+
+    suspend fun getAllDistinctDates(): List<Long> = entryDao.getAllDistinctDates()
+
+    fun getHourlyStatsInRange(start: Long, end: Long): Flow<List<HourStat>> =
+        entryDao.getHourlyStatsInRange(start, end)
 
     companion object {
         fun getMonthRange(year: Int, month: Int): Pair<Long, Long> {

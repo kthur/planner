@@ -38,11 +38,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material3.AlertDialog
+import com.planner.tracker.data.Template
 import com.planner.tracker.ui.components.PhotoActionDialog
+import com.planner.tracker.ui.components.TemplateDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -98,6 +101,10 @@ fun MainScreen(
     restoredNote: String = "",
     restoredCategories: Set<String> = emptySet(),
     restoredPhotoUri: String? = null,
+    templates: List<Template> = emptyList(),
+    onAddTemplate: (String, String, String, Int) -> Unit = { _, _, _, _ -> },
+    onDeleteTemplate: (Template) -> Unit = {},
+    onUseTemplate: (Template) -> Unit = {},
     onStartTracking: (Set<String>, String, String, String, String?) -> Unit = { _, _, _, _, _ -> },
     onStopTrackingAndSave: (Set<String>, String, String?) -> Pair<Long, Long>? = { _, _, _ -> null },
     onCancelTracking: () -> Unit = {},
@@ -105,6 +112,7 @@ fun MainScreen(
 ) {
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
+    var showTemplateDialog by remember { mutableStateOf(false) }
     var selectedCategory by remember(categories) { mutableStateOf(categories.firstOrNull()?.name ?: "") }
     var note by remember { mutableStateOf("") }
 
@@ -312,6 +320,29 @@ fun MainScreen(
         )
     }
 
+    if (showTemplateDialog) {
+        TemplateDialog(
+            templates = templates,
+            categories = categories,
+            onSelect = { tmpl ->
+                selectedCategory = tmpl.category
+                note = tmpl.note
+                if (tmpl.durationMinutes > 0) {
+                    val h = tmpl.durationMinutes / 60
+                    val m = tmpl.durationMinutes % 60
+                    durationH = if (h > 0) h.toString() else ""
+                    durationM = if (m > 0) m.toString() else ""
+                    timerMinutes = tmpl.durationMinutes.toString()
+                }
+                onUseTemplate(tmpl)
+                showTemplateDialog = false
+            },
+            onAdd = onAddTemplate,
+            onDelete = onDeleteTemplate,
+            onDismiss = { showTemplateDialog = false }
+        )
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())
     ) {
@@ -407,6 +438,18 @@ fun MainScreen(
                     }
                 } else {
                     // 기록 추가 입력 패널
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("활동 카테고리", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { showTemplateDialog = true }) {
+                            Icon(Icons.Default.Bookmarks, contentDescription = null, modifier = Modifier.size(16.dp), tint = Accent)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("템플릿", style = MaterialTheme.typography.bodySmall, color = Accent)
+                        }
+                    }
                     CategorySelector(categories = categories, selected = selectedCategory, onSelect = { selectedCategory = it })
                     Spacer(modifier = Modifier.height(12.dp))
 

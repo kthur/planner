@@ -32,6 +32,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -66,6 +67,7 @@ import com.planner.tracker.data.CategoryEntity
 import com.planner.tracker.data.CategoryStat
 import com.planner.tracker.data.DailyCategoryStat
 import com.planner.tracker.data.DailyStat
+import com.planner.tracker.data.HourStat
 import com.planner.tracker.data.Entry
 import com.planner.tracker.ui.components.EntryCard
 import com.planner.tracker.ui.theme.Accent
@@ -99,6 +101,10 @@ fun StatsScreen(
     onMonthChange: (Int, Int) -> Unit,
     onDateSelected: (Long) -> Unit,
     onNavigateToGoals: () -> Unit,
+    currentStreak: Int = 0,
+    longestStreak: Int = 0,
+    hourlyStats: List<HourStat> = emptyList(),
+    onShareStatsCard: (String, Int, Int, String?) -> Unit = { _, _, _, _ -> },
     selectedEntry: Entry? = null,
     onSelectEntry: (Entry?) -> Unit = {},
     onUpdateEntry: (Entry) -> Unit = {},
@@ -127,6 +133,47 @@ fun StatsScreen(
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
         ) {
+            // 스트릭 배지
+            if (currentStreak > 0) {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("🔥", style = MaterialTheme.typography.titleLarge)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "${currentStreak}일 연속 기록 중!",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFFF6B35)
+                                )
+                                if (longestStreak > currentStreak) {
+                                    Text(
+                                        text = "최장 기록: ${longestStreak}일",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                        if (currentStreak >= longestStreak) {
+                            Text("🏆 최고!", style = MaterialTheme.typography.labelMedium, color = Color(0xFFFFD700))
+                        }
+                    }
+                }
+            }
             TabRow(selectedTabIndex = selectedTab) {
                 tabs.forEachIndexed { index, title ->
                     Tab(selected = selectedTab == index, onClick = { selectedTab = index }, text = { Text(title) })
@@ -146,6 +193,10 @@ fun StatsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     if (dailyEntries.isNotEmpty()) {
                         DailyClockView(entries = dailyEntries, categoryMap = categoryMap)
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                    if (hourlyStats.isNotEmpty()) {
+                        HourlyBarChart(hourlyStats = hourlyStats)
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
@@ -169,6 +220,13 @@ fun StatsScreen(
                         IconButton(onClick = { cal.timeInMillis = selectedDay; cal.add(Calendar.WEEK_OF_YEAR, 1); selectedDay = cal.timeInMillis; onDateSelected(selectedDay) }) { Icon(Icons.Default.ChevronRight, "다음 주", tint = MaterialTheme.colorScheme.onBackground) }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
+                    ReportSummaryCard(
+                        periodTitle = "주간",
+                        stats = weeklyStats,
+                        dailyStats = weeklyDailyStats,
+                        categoryMap = categoryMap
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
                 2 -> {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
@@ -180,9 +238,22 @@ fun StatsScreen(
                     MonthCalendar(year = year, month = month, dailyCategoryMap = monthlyDailyCategoryMap, categoryMap = categoryMap, onDateClick = { millis -> selectedDay = millis; onDateSelected(millis) })
                     Spacer(modifier = Modifier.height(16.dp))
                     if (monthlyDailyStats.isNotEmpty()) {
+                        MonthlyCumulativeLineChart(
+                            monthlyDailyStats = monthlyDailyStats,
+                            currentYear = year,
+                            currentMonth = month
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
                         HeatmapCalendar(monthlyDailyStats = monthlyDailyStats)
                         Spacer(modifier = Modifier.height(16.dp))
                     }
+                    ReportSummaryCard(
+                        periodTitle = "월간",
+                        stats = monthlyStats,
+                        dailyStats = monthlyDailyStats,
+                        categoryMap = categoryMap
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
             }
 
@@ -269,6 +340,25 @@ fun StatsScreen(
                                     Text(text = pctText, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, modifier = Modifier.width(60.dp), textAlign = TextAlign.End)
                                 }
                             }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedButton(
+                            onClick = {
+                                val dateStr = when (selectedTab) {
+                                    0 -> SimpleDateFormat("yyyy년 M월 d일", Locale.KOREAN).format(Date(selectedDay))
+                                    1 -> "주간 요약"
+                                    else -> "${year}년 ${month}월 요약"
+                                }
+                                val topCatName = stats.maxByOrNull { it.totalMinutes }?.let {
+                                    categoryMap[it.category]?.displayName ?: it.category
+                                }
+                                onShareStatsCard(dateStr, totalMinutes, currentStreak, topCatName)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("기록 카드 이미지 공유")
                         }
                     }
                 }
@@ -666,6 +756,202 @@ private fun HeatmapCalendar(monthlyDailyStats: List<DailyStat>) {
                 Box(Modifier.size(12.dp).clip(RoundedCornerShape(2.dp)).background(Accent.copy(alpha = 0.6f)))
                 Box(Modifier.size(12.dp).clip(RoundedCornerShape(2.dp)).background(Accent.copy(alpha = 0.85f)))
                 Text(text = "많음", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+fun HourlyBarChart(hourlyStats: List<HourStat>) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("⏰ 시간대별 집중도", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(12.dp))
+            val maxMinutes = hourlyStats.maxOfOrNull { it.totalMinutes } ?: 1
+            val hourMap = hourlyStats.associateBy { it.hour }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(90.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                for (h in 0..23) {
+                    val mins = hourMap[h]?.totalMinutes ?: 0
+                    val ratio = if (maxMinutes > 0) mins.toFloat() / maxMinutes else 0f
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight(ratio.coerceAtLeast(0.04f))
+                                .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
+                                .background(
+                                    if (mins > 0) Accent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
+                                )
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("0시", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("6시", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("12시", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("18시", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("23시", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+fun ReportSummaryCard(
+    periodTitle: String,
+    stats: List<CategoryStat>,
+    dailyStats: List<DailyStat>,
+    categoryMap: Map<String, CategoryEntity>
+) {
+    if (stats.isEmpty()) return
+    val totalMinutes = stats.sumOf { it.totalMinutes }
+    val topCategoryStat = stats.maxByOrNull { it.totalMinutes }
+    val topCategoryName = topCategoryStat?.let { categoryMap[it.category]?.displayName ?: it.category } ?: "기록"
+    val activeDays = dailyStats.count { it.totalMinutes > 0 }
+    val avgMinutes = if (activeDays > 0) totalMinutes / activeDays else 0
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("📋 $periodTitle 분석 리포트", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "가장 많이 집중한 활동은 '${topCategoryName}' (${topCategoryStat?.totalMinutes ?: 0}분)입니다.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "총 ${activeDays}일 동안 활동했으며, 활동일 평균 ${avgMinutes / 60}시간 ${avgMinutes % 60}분 집중했습니다 ✨",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun MonthlyCumulativeLineChart(
+    monthlyDailyStats: List<DailyStat>,
+    currentYear: Int,
+    currentMonth: Int
+) {
+    if (monthlyDailyStats.isEmpty()) return
+
+    val cal = Calendar.getInstance().apply {
+        set(Calendar.YEAR, currentYear)
+        set(Calendar.MONTH, currentMonth - 1)
+    }
+    val maxDaysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+    val dayMap = monthlyDailyStats.associate {
+        val c = Calendar.getInstance().apply { timeInMillis = it.date }
+        c.get(Calendar.DAY_OF_MONTH) to it.totalMinutes
+    }
+
+    var runningTotal = 0
+    val cumulativeByDay = (1..maxDaysInMonth).map { d ->
+        runningTotal += (dayMap[d] ?: 0)
+        d to runningTotal
+    }
+
+    val maxCumulative = cumulativeByDay.maxOfOrNull { it.second } ?: 0
+    if (maxCumulative <= 0) return
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("📈 월간 누적 집중 추이", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text("일별 누적 시간 (현재 총 ${runningTotal / 60}시간 ${runningTotal % 60}분)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            val primaryColor = Accent
+            val paceColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+            ) {
+                val w = size.width
+                val h = size.height
+                val padLeft = 10f
+                val padRight = 10f
+                val padTop = 15f
+                val padBottom = 15f
+                val chartW = w - padLeft - padRight
+                val chartH = h - padTop - padBottom
+
+                // 기준선 (점선 페이스 라인)
+                drawLine(
+                    color = paceColor,
+                    start = Offset(padLeft, h - padBottom),
+                    end = Offset(w - padRight, padTop),
+                    strokeWidth = 2f,
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
+                )
+
+                // 누적 곡선
+                val points = cumulativeByDay.map { (day, cum) ->
+                    val x = padLeft + ((day - 1).toFloat() / (maxDaysInMonth - 1)) * chartW
+                    val y = h - padBottom - (cum.toFloat() / maxCumulative) * chartH
+                    Offset(x, y)
+                }
+
+                val path = androidx.compose.ui.graphics.Path()
+                points.forEachIndexed { idx, pt ->
+                    if (idx == 0) path.moveTo(pt.x, pt.y)
+                    else path.lineTo(pt.x, pt.y)
+                }
+                drawPath(
+                    path = path,
+                    color = primaryColor,
+                    style = Stroke(width = 4f, cap = StrokeCap.Round)
+                )
+
+                // 최신 데이터 점
+                points.lastOrNull()?.let { lastPt ->
+                    drawCircle(
+                        color = primaryColor,
+                        radius = 6f,
+                        center = lastPt
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("1일", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("15일", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${maxDaysInMonth}일", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

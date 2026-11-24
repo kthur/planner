@@ -33,6 +33,18 @@ interface EntryDao {
     @Query("SELECT date, SUM(minutes) as totalMinutes, SUM(count) as totalCount FROM entries WHERE date >= :start AND date <= :end GROUP BY date ORDER BY date ASC")
     fun getDailyStatsInRange(start: Long, end: Long): Flow<List<DailyStat>>
 
+    // DB 변경 시 자동 갱신되는 Flow 기반 일별×카테고리 집계 쿼리
+    @Query("""
+        SELECT date, category,
+               SUM(minutes) AS totalMinutes,
+               SUM(count)   AS totalCount
+        FROM entries
+        WHERE date >= :start AND date <= :end
+        GROUP BY date, category
+        ORDER BY date ASC
+    """)
+    fun getDailyCategoryStatsInRange(start: Long, end: Long): Flow<List<DailyCategoryStat>>
+
     @Query("SELECT SUM(minutes) FROM entries WHERE date >= :start AND date <= :end AND category = :categoryName")
     fun getCategoryTotalInRange(categoryName: String, start: Long, end: Long): Flow<Int?>
 
@@ -44,6 +56,19 @@ interface EntryDao {
 
     @Query("SELECT * FROM entries WHERE isSynced = 0")
     suspend fun getUnsyncedEntries(): List<Entry>
+
+    @Query("SELECT DISTINCT date FROM entries ORDER BY date DESC")
+    suspend fun getAllDistinctDates(): List<Long>
+
+    @Query("""
+        SELECT CAST(strftime('%H', datetime((CASE WHEN startTime > 0 THEN startTime ELSE date END) / 1000, 'unixepoch', 'localtime')) AS INTEGER) as hour,
+               SUM(minutes) as totalMinutes
+        FROM entries
+        WHERE date >= :start AND date <= :end AND minutes > 0
+        GROUP BY hour
+        ORDER BY hour ASC
+    """)
+    fun getHourlyStatsInRange(start: Long, end: Long): Flow<List<HourStat>>
 }
 
 data class CategoryStat(
@@ -56,4 +81,9 @@ data class DailyStat(
     val date: Long,
     val totalMinutes: Int,
     val totalCount: Int
+)
+
+data class HourStat(
+    val hour: Int,
+    val totalMinutes: Int
 )

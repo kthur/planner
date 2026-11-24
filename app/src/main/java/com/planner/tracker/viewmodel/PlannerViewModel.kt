@@ -1,4 +1,4 @@
-package com.planner.tracker.viewmodel
+﻿package com.planner.tracker.viewmodel
 
 import android.app.Application
 import android.app.NotificationChannel
@@ -22,6 +22,9 @@ import com.planner.tracker.data.Repository
 import com.planner.tracker.data.CalendarSyncManager
 import com.planner.tracker.data.WearDataManager
 import com.planner.tracker.data.NetworkMonitor
+import com.planner.tracker.data.Template
+import com.planner.tracker.data.TemplateDao
+import com.planner.tracker.data.HourStat
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -43,6 +46,22 @@ import java.util.Calendar
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlannerViewModel(application: Application) : AndroidViewModel(application) {
+
+    // ─── SharedPreferences 키 상수 ───────────────────────────────────────────
+    companion object {
+        private const val PREFS_TRACKER        = "tracker_prefs"
+        private const val PREFS_GOAL_REMINDER  = "goal_reminder_prefs"
+
+        private const val KEY_IS_TRACKING       = "is_tracking"
+        private const val KEY_START_ELAPSED     = "start_elapsed"
+        private const val KEY_TARGET_SEC        = "target_sec"
+        private const val KEY_TIMER_MINUTES     = "timer_minutes"
+        private const val KEY_NOTE              = "note"
+        private const val KEY_CATEGORIES        = "categories"
+        private const val KEY_CATEGORY_DISPLAYS = "category_displays"
+        private const val KEY_PHOTO_URI         = "photo_uri"
+        private const val KEY_LAST_NOTIFIED_KEY = "last_notified_key"  // "YYYY-DDD" 형식
+    }
 
     private val repository: Repository
 
@@ -73,6 +92,12 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     val categoryProgress: StateFlow<Map<String, Pair<Int, Int>>>
 
+    private val _currentStreak = MutableStateFlow(0)
+    val currentStreak: StateFlow<Int> = _currentStreak
+
+    private val _longestStreak = MutableStateFlow(0)
+    val longestStreak: StateFlow<Int> = _longestStreak
+
     private val _isTracking = MutableStateFlow(false)
     val isTracking: StateFlow<Boolean> = _isTracking
 
@@ -99,6 +124,10 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     val monthlyDailyCategoryMap: StateFlow<Map<Long, List<String>>>
 
+    private val templateDao: TemplateDao
+    val templates: StateFlow<List<Template>>
+    val hourlyStats: StateFlow<List<HourStat>>
+
     // Firebase states
     val currentUserState = CloudService.getAuthStateFlow().stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), null
@@ -123,6 +152,16 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
     init {
         val db = AppDatabase.getInstance(application)
         repository = Repository(db.entryDao(), db.goalDao(), db.categoryDao())
+        templateDao = db.templateDao()
+
+        templates = templateDao.getAll().stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+        )
+
+        hourlyStats = _selectedDate.flatMapLatest { date ->
+            val dayRange = Repository.getDayRange(date)
+            repository.getHourlyStatsInRange(dayRange.first, dayRange.second)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         categories = repository.getAllCategories().stateIn(
             viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
@@ -203,42 +242,43 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-        weeklyDailyCategoryStats = _selectedDate.mapLatest { date ->
+        // DB 변경 시 자동 갱신: mapLatest(1회성) → flatMapLatest + Flow 기반 DAO 쿼리
+        weeklyDailyCategoryStats = _selectedDate.flatMapLatest { date ->
             val (start, end) = Repository.getWeekRange(date)
-            val entries = repository.getEntriesBetweenOnce(start, end)
-            entries.groupBy { it.date }.flatMap { (day, dayEntries) ->
-                dayEntries.groupBy { it.category }.map { (cat, catEntries) ->
-                    DailyCategoryStat(day, cat, catEntries.sumOf { it.minutes }, catEntries.sumOf { it.count })
-                }
-            }
+            repository.getDailyCategoryStatsInRange(start, end)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        monthlyDailyCategoryMap = monthRange.mapLatest { (start, end) ->
-            val entries = repository.getEntriesBetweenOnce(start, end)
-            entries.groupBy { it.date }.mapValues { (_, dayEntries) ->
-                dayEntries.map { it.category }.distinct()
+        // monthlyDailyCategoryMap도 Flow 기반으로 교체
+        monthlyDailyCategoryMap = monthRange.flatMapLatest { (start, end) ->
+            repository.getDailyCategoryStatsInRange(start, end)
+        }.mapLatest { stats ->
+            stats.groupBy { it.date }.mapValues { (_, dayStats) ->
+                dayStats.map { it.category }.distinct()
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
+        viewModelScope.launch {
+            entriesForSelectedDate.collect { refreshStreak() }
+        }
+
         // Load tracking state from SharedPreferences
-        val prefs = application.getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE)
-        val isTrackingRestore = prefs.getBoolean("is_tracking", false)
+        val prefs = application.getSharedPreferences(PREFS_TRACKER, Context.MODE_PRIVATE)
+        val isTrackingRestore = prefs.getBoolean(KEY_IS_TRACKING, false)
         if (isTrackingRestore) {
-            val startElapsed = prefs.getLong("start_elapsed", 0L)
-            val targetSec = prefs.getInt("target_sec", 0)
-            val note = prefs.getString("note", "") ?: ""
-            val categoriesString = prefs.getString("categories", "") ?: ""
+            val startElapsed = prefs.getLong(KEY_START_ELAPSED, 0L)
+            val targetSec = prefs.getInt(KEY_TARGET_SEC, 0)
+            val note = prefs.getString(KEY_NOTE, "") ?: ""
+            val categoriesString = prefs.getString(KEY_CATEGORIES, "") ?: ""
             val categoriesSet = if (categoriesString.isEmpty()) emptySet() else categoriesString.split(",").toSet()
-            val timerMinutes = prefs.getString("timer_minutes", "") ?: ""
+            val timerMinutes = prefs.getString(KEY_TIMER_MINUTES, "") ?: ""
 
             _trackingStartedAt = startElapsed
             _isTracking.value = true
             timerTargetSec = targetSec
             _restoredNote.value = note
             _restoredCategories.value = categoriesSet
-            _restoredPhotoUri.value = prefs.getString("photo_uri", null)
+            _restoredPhotoUri.value = prefs.getString(KEY_PHOTO_URI, null)
 
-            val timerSec = timerMinutes.toIntOrNull() ?: 0
             trackingJob = viewModelScope.launch {
                 while (true) {
                     val secs = (SystemClock.elapsedRealtime() - _trackingStartedAt) / 1000
@@ -384,16 +424,16 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         _restoredCategories.value = categories
         _restoredPhotoUri.value = photoUri
 
-        val prefs = getApplication<Application>().getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE)
+        val prefs = getApplication<Application>().getSharedPreferences(PREFS_TRACKER, Context.MODE_PRIVATE)
         prefs.edit().apply {
-            putBoolean("is_tracking", true)
-            putLong("start_elapsed", now)
-            putInt("target_sec", timerTargetSec)
-            putString("timer_minutes", timerMinutes)
-            putString("note", note)
-            putString("categories", categories.joinToString(","))
-            putString("category_displays", categoryDisplays)
-            putString("photo_uri", photoUri)
+            putBoolean(KEY_IS_TRACKING, true)
+            putLong(KEY_START_ELAPSED, now)
+            putInt(KEY_TARGET_SEC, timerTargetSec)
+            putString(KEY_TIMER_MINUTES, timerMinutes)
+            putString(KEY_NOTE, note)
+            putString(KEY_CATEGORIES, categories.joinToString(","))
+            putString(KEY_CATEGORY_DISPLAYS, categoryDisplays)
+            putString(KEY_PHOTO_URI, photoUri)
         }.apply()
 
         val ctx = getApplication<Application>()
@@ -523,21 +563,21 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
     fun updateTrackingNote(note: String) {
         _restoredNote.value = note
         val ctx = getApplication<Application>()
-        val prefs = ctx.getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putString("note", note).apply()
+        val prefs = ctx.getSharedPreferences(PREFS_TRACKER, Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_NOTE, note).apply()
         val intent = Intent(ctx, com.planner.tracker.TrackerService::class.java).apply {
             action = com.planner.tracker.TrackerService.ACTION_UPDATE_NOTE
             putExtra(com.planner.tracker.TrackerService.EXTRA_NOTE, note)
         }
         ctx.startService(intent)
 
-        val isTracking = prefs.getBoolean("is_tracking", false)
-        val startElapsed = prefs.getLong("start_elapsed", 0L)
-        val targetSec = prefs.getInt("target_sec", 0)
-        val categoriesString = prefs.getString("categories", "") ?: ""
+        val isTracking = prefs.getBoolean(KEY_IS_TRACKING, false)
+        val startElapsed = prefs.getLong(KEY_START_ELAPSED, 0L)
+        val targetSec = prefs.getInt(KEY_TARGET_SEC, 0)
+        val categoriesString = prefs.getString(KEY_CATEGORIES, "") ?: ""
         val categoriesSet = if (categoriesString.isEmpty()) emptySet() else categoriesString.split(",").toSet()
-        val categoryDisplays = prefs.getString("category_displays", "") ?: ""
-        val photoUri = prefs.getString("photo_uri", null)
+        val categoryDisplays = prefs.getString(KEY_CATEGORY_DISPLAYS, "") ?: ""
+        val photoUri = prefs.getString(KEY_PHOTO_URI, null)
 
         WearDataManager.syncTrackingState(
             context = ctx,
@@ -561,12 +601,12 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         }
         ctx.startService(intent)
 
-        val prefs = ctx.getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE)
-        val isTracking = prefs.getBoolean("is_tracking", false)
-        val startElapsed = prefs.getLong("start_elapsed", 0L)
-        val targetSec = prefs.getInt("target_sec", 0)
-        val note = prefs.getString("note", "") ?: ""
-        val photoUri = prefs.getString("photo_uri", null)
+        val prefs = ctx.getSharedPreferences(PREFS_TRACKER, Context.MODE_PRIVATE)
+        val isTracking = prefs.getBoolean(KEY_IS_TRACKING, false)
+        val startElapsed = prefs.getLong(KEY_START_ELAPSED, 0L)
+        val targetSec = prefs.getInt(KEY_TARGET_SEC, 0)
+        val note = prefs.getString(KEY_NOTE, "") ?: ""
+        val photoUri = prefs.getString(KEY_PHOTO_URI, null)
 
         WearDataManager.syncTrackingState(
             context = ctx,
@@ -581,7 +621,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun clearTrackingPrefs() {
-        val prefs = getApplication<Application>().getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE)
+        val prefs = getApplication<Application>().getSharedPreferences(PREFS_TRACKER, Context.MODE_PRIVATE)
         prefs.edit().clear().apply()
         _restoredNote.value = ""
         _restoredCategories.value = emptySet()
@@ -610,12 +650,196 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         _alarmTriggered.value = false
     }
 
+    fun refreshStreak() {
+        viewModelScope.launch {
+            val dates = repository.getAllDistinctDates()
+            val days = dates.map { ts ->
+                val cal = Calendar.getInstance().apply { timeInMillis = ts }
+                Triple(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
+            }.distinct().sortedWith(compareByDescending<Triple<Int,Int,Int>> { it.first }
+                .thenByDescending { it.second }
+                .thenByDescending { it.third })
+
+            // 현재 스트릭: 오늘부터 역방향 연속 계산
+            var streak = 0
+            val checkCal = Calendar.getInstance()
+            for ((y, m, d) in days) {
+                if (checkCal.get(Calendar.YEAR) == y &&
+                    checkCal.get(Calendar.MONTH) == m &&
+                    checkCal.get(Calendar.DAY_OF_MONTH) == d) {
+                    streak++
+                    checkCal.add(Calendar.DAY_OF_MONTH, -1)
+                } else break
+            }
+            _currentStreak.value = streak
+
+            // 최장 스트릭 계산
+            if (days.isEmpty()) { _longestStreak.value = 0; return@launch }
+            var longest = 1
+            var current = 1
+            for (i in 1 until days.size) {
+                val (py, pm, pd) = days[i - 1]
+                val (cy, cm, cd) = days[i]
+                val prev = Calendar.getInstance().apply { set(py, pm, pd) }
+                prev.add(Calendar.DAY_OF_MONTH, -1)
+                if (prev.get(Calendar.YEAR) == cy && prev.get(Calendar.MONTH) == cm &&
+                    prev.get(Calendar.DAY_OF_MONTH) == cd) {
+                    current++
+                } else {
+                    longest = maxOf(longest, current)
+                    current = 1
+                }
+            }
+            _longestStreak.value = maxOf(longest, current)
+        }
+    }
+
+    fun addTemplate(name: String, category: String, note: String, durationMinutes: Int) {
+        viewModelScope.launch {
+            templateDao.insert(
+                Template(
+                    name = name,
+                    category = category,
+                    note = note,
+                    durationMinutes = durationMinutes
+                )
+            )
+        }
+    }
+
+    fun deleteTemplate(template: Template) {
+        viewModelScope.launch {
+            templateDao.delete(template)
+        }
+    }
+
+    fun useTemplate(template: Template) {
+        viewModelScope.launch {
+            templateDao.incrementUsage(template.id)
+        }
+    }
+
+    fun shareStatsCard(context: Context, dateText: String, totalMinutes: Int, streak: Int, topCategory: String?) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val width = 800
+                val height = 1000
+                val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+                val canvas = android.graphics.Canvas(bitmap)
+
+                // 배경 채우기
+                val bgPaint = android.graphics.Paint().apply {
+                    color = android.graphics.Color.parseColor("#181825")
+                    style = android.graphics.Paint.Style.FILL
+                }
+                canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
+
+                // 카드 영역
+                val cardPaint = android.graphics.Paint().apply {
+                    color = android.graphics.Color.parseColor("#252538")
+                    style = android.graphics.Paint.Style.FILL
+                    isAntiAlias = true
+                }
+                val rectF = android.graphics.RectF(50f, 60f, (width - 50).toFloat(), (height - 60).toFloat())
+                canvas.drawRoundRect(rectF, 40f, 40f, cardPaint)
+
+                val textPaint = android.graphics.Paint().apply {
+                    isAntiAlias = true
+                    color = android.graphics.Color.WHITE
+                    textAlign = android.graphics.Paint.Align.CENTER
+                }
+
+                // 앱 타이틀
+                textPaint.textSize = 32f
+                textPaint.color = android.graphics.Color.parseColor("#A6ADC8")
+                canvas.drawText("PLANNER · 집중 기록", width / 2f, 150f, textPaint)
+
+                // 날짜
+                textPaint.textSize = 42f
+                textPaint.isFakeBoldText = true
+                textPaint.color = android.graphics.Color.WHITE
+                canvas.drawText(dateText, width / 2f, 230f, textPaint)
+
+                // 구분선
+                val linePaint = android.graphics.Paint().apply {
+                    color = android.graphics.Color.parseColor("#45475A")
+                    strokeWidth = 3f
+                }
+                canvas.drawLine(120f, 280f, (width - 120).toFloat(), 280f, linePaint)
+
+                // 총 시간
+                val hours = totalMinutes / 60
+                val mins = totalMinutes % 60
+                val timeStr = if (hours > 0) "${hours}시간 ${mins}분" else "${mins}분"
+
+                textPaint.textSize = 34f
+                textPaint.isFakeBoldText = false
+                textPaint.color = android.graphics.Color.parseColor("#BAC2DE")
+                canvas.drawText("총 집중 시간", width / 2f, 380f, textPaint)
+
+                textPaint.textSize = 68f
+                textPaint.isFakeBoldText = true
+                textPaint.color = android.graphics.Color.parseColor("#89B4FA")
+                canvas.drawText(timeStr, width / 2f, 470f, textPaint)
+
+                // 스트릭
+                if (streak > 0) {
+                    textPaint.textSize = 38f
+                    textPaint.isFakeBoldText = true
+                    textPaint.color = android.graphics.Color.parseColor("#FAB387")
+                    canvas.drawText("🔥 $streak 일 연속 기록 중!", width / 2f, 570f, textPaint)
+                }
+
+                // 주 활동 카테고리
+                if (!topCategory.isNullOrBlank()) {
+                    textPaint.textSize = 34f
+                    textPaint.isFakeBoldText = false
+                    textPaint.color = android.graphics.Color.parseColor("#CDD6F4")
+                    canvas.drawText("가장 많은 활동: $topCategory", width / 2f, 660f, textPaint)
+                }
+
+                // 하단 워터마크
+                textPaint.textSize = 28f
+                textPaint.color = android.graphics.Color.parseColor("#585B70")
+                textPaint.isFakeBoldText = false
+                canvas.drawText("Planner 앱에서 기록됨", width / 2f, 850f, textPaint)
+
+                // 파일 저장
+                val shareDir = java.io.File(context.cacheDir, "share")
+                if (!shareDir.exists()) shareDir.mkdirs()
+                val imageFile = java.io.File(shareDir, "planner_share_${System.currentTimeMillis()}.png")
+                java.io.FileOutputStream(imageFile).use { out ->
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                }
+
+                val authority = "${context.packageName}.fileprovider"
+                val contentUri = androidx.core.content.FileProvider.getUriForFile(context, authority, imageFile)
+
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "image/png"
+                    putExtra(Intent.EXTRA_STREAM, contentUri)
+                    putExtra(Intent.EXTRA_TEXT, "오늘 $timeStr 동안 집중했어요! 🎯 #Planner #시간기록")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                val chooser = Intent.createChooser(shareIntent, "통계 카드 공유하기").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(chooser)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun checkAndNotifyGoalReminder() {
         val ctx = getApplication<Application>()
-        val prefs = ctx.getSharedPreferences("goal_reminder_prefs", Context.MODE_PRIVATE)
-        val lastNotifiedDay = prefs.getInt("last_notified_day", 0)
-        val today = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
-        if (today == lastNotifiedDay) return
+        val prefs = ctx.getSharedPreferences(PREFS_GOAL_REMINDER, Context.MODE_PRIVATE)
+        // DAY_OF_YEAR 단독 사용 시 연도가 달라도 같은 값 → "YYYY-DDD" 조합으로 고유화
+        val cal = Calendar.getInstance()
+        val todayKey = "${cal.get(Calendar.YEAR)}-${cal.get(Calendar.DAY_OF_YEAR)}"
+        val lastNotifiedKey = prefs.getString(KEY_LAST_NOTIFIED_KEY, "") ?: ""
+        if (todayKey == lastNotifiedKey) return
 
         viewModelScope.launch {
             val goals = repository.getAllGoals().firstOrNull() ?: return@launch
@@ -641,7 +865,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                 .build()
 
             notifManager.notify(1001, notification)
-            prefs.edit().putInt("last_notified_day", today).apply()
+            prefs.edit().putString(KEY_LAST_NOTIFIED_KEY, todayKey).apply()
         }
     }
 
@@ -660,20 +884,52 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     fun exportDataAsJson(onResult: (String) -> Unit) {
         viewModelScope.launch {
-            val entries = repository.getEntriesBetweenOnce(0L, Long.MAX_VALUE)
-            val allGoals = repository.getAllGoals().firstOrNull() ?: emptyList()
-            val sb = StringBuilder()
-            sb.appendLine("{\"entries\":[")
-            entries.forEachIndexed { i, e ->
-                val photoVal = if (e.photoUri != null) "\"${e.photoUri}\"" else "null"
-                sb.appendLine("""{"id":${e.id},"date":${e.date},"category":"${e.category}","minutes":${e.minutes},"note":"${e.note.replace("\"", "\\\"")}","startTime":${e.startTime},"endTime":${e.endTime},"photoUri":$photoVal}${if (i < entries.lastIndex) "," else ""}""")
+            try {
+                val entries = repository.getEntriesBetweenOnce(0L, Long.MAX_VALUE)
+                val allGoals = repository.getAllGoals().firstOrNull() ?: emptyList()
+
+                // JSONObject/JSONArray 사용 → 특수문자 escaping 버그 방지
+                val entriesArray = JSONArray()
+                entries.forEach { e ->
+                    val obj = JSONObject().apply {
+                        put("id", e.id)
+                        put("date", e.date)
+                        put("category", e.category)
+                        put("minutes", e.minutes)
+                        put("note", e.note)
+                        put("startTime", e.startTime)
+                        put("endTime", e.endTime)
+                        put("entryType", e.entryType)
+                        put("count", e.count)
+                        if (e.photoUri != null) put("photoUri", e.photoUri) else put("photoUri", JSONObject.NULL)
+                    }
+                    entriesArray.put(obj)
+                }
+
+                val goalsArray = JSONArray()
+                allGoals.forEach { g ->
+                    val obj = JSONObject().apply {
+                        put("id", g.id)
+                        put("yearMonth", g.yearMonth)
+                        put("category", g.category)
+                        put("description", g.description)
+                        put("targetMinutes", g.targetMinutes)
+                        put("targetCount", g.targetCount)
+                        put("periodType", g.periodType)
+                        put("deadline", g.deadline)
+                        put("isCompleted", g.isCompleted)
+                    }
+                    goalsArray.put(obj)
+                }
+
+                val root = JSONObject().apply {
+                    put("entries", entriesArray)
+                    put("goals", goalsArray)
+                }
+                onResult(root.toString(2))
+            } catch (e: Exception) {
+                onResult("{\"error\":\"내보내기 실패: ${e.message}\"}")
             }
-            sb.appendLine("],\"goals\":[")
-            allGoals.forEachIndexed { i, g ->
-                sb.appendLine("""{"id":${g.id},"yearMonth":"${g.yearMonth}","category":"${g.category}","description":"${g.description.replace("\"", "\\\"")}","targetMinutes":${g.targetMinutes},"deadline":${g.deadline},"isCompleted":${g.isCompleted}}${if (i < allGoals.lastIndex) "," else ""}""")
-            }
-            sb.appendLine("]}")
-            onResult(sb.toString())
         }
     }
 
@@ -690,8 +946,10 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                         category = obj.getString("category"),
                         minutes = obj.getInt("minutes"),
                         note = obj.optString("note", ""),
-                        startTime = obj.getLong("startTime"),
-                        endTime = obj.getLong("endTime"),
+                        startTime = obj.optLong("startTime", 0L),
+                        endTime = obj.optLong("endTime", 0L),
+                        entryType = obj.optString("entryType", "DURATION"),
+                        count = obj.optInt("count", 0),
                         photoUri = if (obj.isNull("photoUri")) null else obj.optString("photoUri").takeIf { it.isNotEmpty() }
                     )
                     repository.insertEntry(entry)
@@ -705,9 +963,11 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                             yearMonth = obj.getString("yearMonth"),
                             category = obj.getString("category"),
                             description = obj.optString("description", ""),
-                            targetMinutes = obj.getInt("targetMinutes"),
-                            deadline = obj.getLong("deadline"),
-                            isCompleted = obj.getBoolean("isCompleted")
+                            targetMinutes = obj.optInt("targetMinutes", 0),
+                            targetCount = obj.optInt("targetCount", 0),
+                            periodType = obj.optString("periodType", "MONTHLY"),
+                            deadline = obj.optLong("deadline", 0L),
+                            isCompleted = obj.optBoolean("isCompleted", false)
                         )
                         repository.upsertGoal(goal)
                     }

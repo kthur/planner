@@ -164,7 +164,11 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
     val restoredPhotoUri by viewModel.restoredPhotoUri.collectAsState()
     val weeklyDailyCategoryStats by viewModel.weeklyDailyCategoryStats.collectAsState()
     val monthlyDailyCategoryMap by viewModel.monthlyDailyCategoryMap.collectAsState()
+    val currentStreak by viewModel.currentStreak.collectAsState()
+    val longestStreak by viewModel.longestStreak.collectAsState()
     val categories by viewModel.categories.collectAsState()
+    val templates by viewModel.templates.collectAsState()
+    val hourlyStats by viewModel.hourlyStats.collectAsState()
     val ctx = LocalContext.current
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -383,6 +387,10 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     restoredNote = restoredNote,
                     restoredCategories = restoredCategories,
                     restoredPhotoUri = restoredPhotoUri,
+                    templates = templates,
+                    onAddTemplate = { name, cat, note, mins -> viewModel.addTemplate(name, cat, note, mins) },
+                    onDeleteTemplate = { viewModel.deleteTemplate(it) },
+                    onUseTemplate = { viewModel.useTemplate(it) },
                     onStartTracking = { cats, displays, note, timerMinutes, photo -> viewModel.startTracking(cats, displays, note, timerMinutes, photo) },
                     onStopTrackingAndSave = { cats, note, photo -> viewModel.stopTrackingAndSave(cats, note, photo) },
                     onCancelTracking = { viewModel.cancelTracking() },
@@ -404,6 +412,12 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     onMonthChange = { y, m -> viewModel.setCurrentMonth(y, m) },
                     onDateSelected = { viewModel.setSelectedDate(it) },
                     onNavigateToGoals = { selectedTab = 2 },
+                    currentStreak = currentStreak,
+                    longestStreak = longestStreak,
+                    hourlyStats = hourlyStats,
+                    onShareStatsCard = { dateText, totalMins, streak, topCat ->
+                        viewModel.shareStatsCard(ctx, dateText, totalMins, streak, topCat)
+                    },
                     selectedEntry = selectedStatsEntry,
                     onSelectEntry = { selectedStatsEntry = it },
                     onUpdateEntry = { viewModel.updateEntry(it) },

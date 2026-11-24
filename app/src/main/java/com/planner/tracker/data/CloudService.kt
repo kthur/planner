@@ -3,6 +3,7 @@ package com.planner.tracker.data
 import android.net.Uri
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
@@ -83,7 +84,12 @@ object CloudService {
                 auth.createUserWithEmailAndPassword(email, password)
                     .addOnCompleteListener { task ->
                         if (task.isSuccessful) {
-                            continuation.resume(Result.success(task.result?.user!!))
+                            val user = task.result?.user
+                            if (user != null) {
+                                continuation.resume(Result.success(user))
+                            } else {
+                                continuation.resume(Result.failure(Exception("사용자 정보를 가져올 수 없습니다")))
+                            }
                         } else {
                             continuation.resume(Result.failure(task.exception ?: Exception("Registration failed")))
                         }
@@ -117,7 +123,12 @@ object CloudService {
             auth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
-                        continuation.resume(Result.success(task.result?.user!!))
+                        val user = task.result?.user
+                        if (user != null) {
+                            continuation.resume(Result.success(user))
+                        } else {
+                            continuation.resume(Result.failure(Exception("사용자 정보를 가져올 수 없습니다")))
+                        }
                     } else {
                         continuation.resume(Result.failure(task.exception ?: Exception("Login failed")))
                     }
@@ -191,15 +202,10 @@ object CloudService {
                 return Result.failure(Exception("유효하지 않은 초대 코드입니다."))
             }
 
-            val group = groupSnapshot.toObject(GroupInfo::class.java)!!
-            val newMembers = group.members.toMutableList()
-            if (!newMembers.contains(userId)) {
-                newMembers.add(userId)
-            }
-
-            // Update group members
+            // arrayUnion으로 원자적 멤버 추가 (클라이언트 직접 배열 수정 방지)
             val updateGroupResult = suspendCancellableCoroutine<Result<String>> { continuation ->
-                firestore.collection("groups").document(cleanCode).update("members", newMembers)
+                firestore.collection("groups").document(cleanCode)
+                    .update("members", FieldValue.arrayUnion(userId))
                     .addOnCompleteListener { task ->
                         if (task.isSuccessful) {
                             continuation.resume(Result.success(cleanCode))
@@ -231,30 +237,16 @@ object CloudService {
     // Leave Group
     suspend fun leaveGroup(userId: String, groupCode: String): Result<Unit> {
         return try {
-            val groupSnapshot = suspendCancellableCoroutine<com.google.firebase.firestore.DocumentSnapshot?> { continuation ->
-                firestore.collection("groups").document(groupCode).get()
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            continuation.resume(task.result)
-                        } else {
-                            continuation.resume(null)
-                        }
-                    }
+            // arrayRemove로 원자적 멤버 제거 (그룹 전체 조회 불필요)
+            suspendCancellableCoroutine<Unit> { continuation ->
+                firestore.collection("groups").document(groupCode)
+                    .update("members", FieldValue.arrayRemove(userId))
+                    .addOnCompleteListener { continuation.resume(Unit) }
             }
-            if (groupSnapshot != null && groupSnapshot.exists()) {
-                val group = groupSnapshot.toObject(GroupInfo::class.java)!!
-                val newMembers = group.members.toMutableList()
-                newMembers.remove(userId)
-                
-                // Update group members
-                suspendCancellableCoroutine<Unit> { continuation ->
-                    firestore.collection("groups").document(groupCode).update("members", newMembers)
-                        .addOnCompleteListener { continuation.resume(Unit) }
-                }
-            }
-            // Update user document
+            // Update user document — groupId 초기화
             suspendCancellableCoroutine<Result<Unit>> { continuation ->
-                firestore.collection("users").document(userId).update("groupId", null)
+                firestore.collection("users").document(userId)
+                    .update("groupId", FieldValue.delete())
                     .addOnCompleteListener { task ->
                         if (task.isSuccessful) {
                             continuation.resume(Result.success(Unit))
