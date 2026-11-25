@@ -31,6 +31,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
+import com.planner.tracker.util.LocationResult
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
@@ -42,6 +43,8 @@ import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material3.AlertDialog
 import com.planner.tracker.data.Template
 import com.planner.tracker.ui.components.PhotoActionDialog
@@ -94,7 +97,7 @@ import java.util.Locale
 fun MainScreen(
     categories: List<CategoryEntity>,
     selectedDate: Long,
-    onAddEntry: (String, Int, String, Long, Long, String, Int, String?) -> Unit,
+    onAddEntry: (String, Int, String, Long, Long, String, Int, String?, Double?, Double?, String?) -> Unit,
     isTracking: Boolean = false,
     elapsedSeconds: Long = 0,
     alarmTriggered: Boolean = false,
@@ -106,9 +109,13 @@ fun MainScreen(
     onDeleteTemplate: (Template) -> Unit = {},
     onUseTemplate: (Template) -> Unit = {},
     onStartTracking: (Set<String>, String, String, String, String?) -> Unit = { _, _, _, _, _ -> },
-    onStopTrackingAndSave: (Set<String>, String, String?) -> Pair<Long, Long>? = { _, _, _ -> null },
+    onStopTrackingAndSave: (Set<String>, String, String?, Double?, Double?, String?) -> Pair<Long, Long>? = { _, _, _, _, _, _ -> null },
     onCancelTracking: () -> Unit = {},
-    onClearAlarm: () -> Unit = {}
+    onClearAlarm: () -> Unit = {},
+    locationState: LocationResult? = null,
+    isFetchingLocation: Boolean = false,
+    onFetchLocation: () -> Unit = {},
+    onClearLocation: () -> Unit = {}
 ) {
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
@@ -216,6 +223,13 @@ fun MainScreen(
     var inputMode by remember { mutableStateOf(false) }
     var countValue by remember { mutableStateOf("1") }
     val cal = remember { Calendar.getInstance() }
+
+    // ─── 위치 권한 launcher ────────────────────────────────────────────────────
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) onFetchLocation()
+    }
 
     LaunchedEffect(Unit) {
         val nowCal = Calendar.getInstance()
@@ -414,11 +428,35 @@ fun MainScreen(
                             }
                         }
                     }
+                    // ─── 위치 버튼 (타이머 모드) ───────────────────────────────────
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LocationRow(
+                        locationState = locationState,
+                        isFetchingLocation = isFetchingLocation,
+                        onFetchLocation = {
+                            if (android.Manifest.permission.ACCESS_FINE_LOCATION.let { perm ->
+                                androidx.core.content.ContextCompat.checkSelfPermission(context, perm) ==
+                                    android.content.pm.PackageManager.PERMISSION_GRANTED
+                            }) {
+                                onFetchLocation()
+                            } else {
+                                locationPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                            }
+                        },
+                        onClearLocation = onClearLocation
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         onClick = {
-                            val timestamps = onStopTrackingAndSave(if (selectedCategory.isNotEmpty()) setOf(selectedCategory) else emptySet(), note, selectedPhotoName)
-                            if (timestamps != null) { note = ""; selectedPhotoName = null }
+                            val timestamps = onStopTrackingAndSave(
+                                if (selectedCategory.isNotEmpty()) setOf(selectedCategory) else emptySet(),
+                                note,
+                                selectedPhotoName,
+                                locationState?.latitude,
+                                locationState?.longitude,
+                                locationState?.locationName
+                            )
+                            if (timestamps != null) { note = ""; selectedPhotoName = null; onClearLocation() }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Accent),
                         modifier = Modifier.fillMaxWidth()
@@ -596,28 +634,47 @@ fun MainScreen(
                                 }
                             }
                         }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LocationRow(
+                            locationState = locationState,
+                            isFetchingLocation = isFetchingLocation,
+                            onFetchLocation = {
+                                if (android.Manifest.permission.ACCESS_FINE_LOCATION.let { perm ->
+                                    androidx.core.content.ContextCompat.checkSelfPermission(context, perm) ==
+                                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                                }) {
+                                    onFetchLocation()
+                                } else {
+                                    locationPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                                }
+                            },
+                            onClearLocation = onClearLocation
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(onClick = {
                             val cat = selectedCategory
                             if (cat.isNotEmpty()) {
+                                val lat = locationState?.latitude
+                                val lng = locationState?.longitude
+                                val locName = locationState?.locationName
                                 if (directInputSubMode == 2) {
-                                    onAddEntry(cat, 0, note, eventTime, 0L, "EVENT", 0, selectedPhotoName)
-                                    note = ""; selectedPhotoName = null
+                                    onAddEntry(cat, 0, note, eventTime, 0L, "EVENT", 0, selectedPhotoName, lat, lng, locName)
+                                    note = ""; selectedPhotoName = null; onClearLocation()
                                 } else if (directInputSubMode == 3) {
                                     val cnt = countValue.toIntOrNull() ?: 1
                                     if (cnt > 0) {
-                                        onAddEntry(cat, 0, note, 0L, 0L, "COUNT", cnt, selectedPhotoName)
-                                        note = ""; countValue = "1"; selectedPhotoName = null
+                                        onAddEntry(cat, 0, note, 0L, 0L, "COUNT", cnt, selectedPhotoName, lat, lng, locName)
+                                        note = ""; countValue = "1"; selectedPhotoName = null; onClearLocation()
                                     }
                                 } else {
                                     val mins = calcMinutesFromTimestamps()
                                     if (mins > 0) {
                                         if (directInputSubMode == 0) {
-                                            onAddEntry(cat, mins, note, 0L, 0L, "DURATION", 0, selectedPhotoName)
+                                            onAddEntry(cat, mins, note, 0L, 0L, "DURATION", 0, selectedPhotoName, lat, lng, locName)
                                         } else {
-                                            onAddEntry(cat, mins, note, startTime, endTime, "DURATION", 0, selectedPhotoName)
+                                            onAddEntry(cat, mins, note, startTime, endTime, "DURATION", 0, selectedPhotoName, lat, lng, locName)
                                         }
-                                        durationH = ""; durationM = ""; note = ""; selectedPhotoName = null
+                                        durationH = ""; durationM = ""; note = ""; selectedPhotoName = null; onClearLocation()
                                     }
                                 }
                             }
@@ -685,6 +742,22 @@ fun MainScreen(
                                 }
                             }
                         }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LocationRow(
+                            locationState = locationState,
+                            isFetchingLocation = isFetchingLocation,
+                            onFetchLocation = {
+                                if (android.Manifest.permission.ACCESS_FINE_LOCATION.let { perm ->
+                                    androidx.core.content.ContextCompat.checkSelfPermission(context, perm) ==
+                                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                                }) {
+                                    onFetchLocation()
+                                } else {
+                                    locationPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                                }
+                            },
+                            onClearLocation = onClearLocation
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(onClick = {
                             val now = Calendar.getInstance()
@@ -702,6 +775,58 @@ fun MainScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+
+// ─── 위치 행 Composable ────────────────────────────────────────────────────────
+@Composable
+private fun LocationRow(
+    locationState: LocationResult?,
+    isFetchingLocation: Boolean,
+    onFetchLocation: () -> Unit,
+    onClearLocation: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = if (locationState != null) Icons.Default.LocationOn else Icons.Default.LocationOff,
+            contentDescription = "위치",
+            tint = if (locationState != null) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = when {
+                isFetchingLocation -> "📍 위치 가져오는 중..."
+                locationState != null -> "📍 ${locationState.locationName ?: String.format("%.4f, %.4f", locationState.latitude, locationState.longitude)}"
+                else -> "위치 기록 안 함"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (locationState != null) 1f else 0.5f)
+        )
+        if (locationState != null) {
+            IconButton(onClick = onClearLocation, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.Close, contentDescription = "위치 지우기", modifier = Modifier.size(16.dp))
+            }
+        } else {
+            androidx.compose.material3.TextButton(
+                onClick = onFetchLocation,
+                enabled = !isFetchingLocation,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Text("위치 추가", style = MaterialTheme.typography.labelSmall)
             }
         }
     }

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -131,6 +132,13 @@ fun EntryCard(
                 }
                 if (entry.note.isNotBlank()) {
                     Text(text = entry.note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, fontSize = 12.sp, maxLines = 1)
+                }
+                if (!entry.locationName.isNullOrBlank()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(11.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(text = entry.locationName, color = Color(0xFF4CAF50), style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, maxLines = 1)
+                    }
                 }
 
                 if (isSelected && !entry.photoUri.isNullOrEmpty()) {

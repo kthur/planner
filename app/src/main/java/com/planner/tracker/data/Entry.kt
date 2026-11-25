@@ -18,7 +18,10 @@ data class Entry(
     val calendarEventId: Long? = null,
     val photoUri: String? = null,
     val photoUrl: String? = null,
-    val isSynced: Boolean = false
+    val isSynced: Boolean = false,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val locationName: String? = null
 )
 
 data class DailyCategoryStat(

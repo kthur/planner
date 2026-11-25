@@ -169,6 +169,8 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
     val categories by viewModel.categories.collectAsState()
     val templates by viewModel.templates.collectAsState()
     val hourlyStats by viewModel.hourlyStats.collectAsState()
+    val locationState by viewModel.locationState.collectAsState()
+    val isFetchingLocation by viewModel.isFetchingLocation.collectAsState()
     val ctx = LocalContext.current
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -380,7 +382,9 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                 0 -> MainScreen(
                     categories = categories,
                     selectedDate = selectedDate,
-                    onAddEntry = { cat, min, note, s, e, type, count, photo -> viewModel.addEntry(cat, min, note, s, e, type, count, photo) },
+                    onAddEntry = { cat, min, note, s, e, type, count, photo, lat, lng, locName ->
+                        viewModel.addEntry(cat, min, note, s, e, type, count, photo, lat, lng, locName)
+                    },
                     isTracking = isTracking,
                     elapsedSeconds = elapsedSeconds,
                     alarmTriggered = alarmTriggered,
@@ -392,9 +396,15 @@ fun PlannerUI(isDarkMode: Boolean, onToggleDarkMode: () -> Unit) {
                     onDeleteTemplate = { viewModel.deleteTemplate(it) },
                     onUseTemplate = { viewModel.useTemplate(it) },
                     onStartTracking = { cats, displays, note, timerMinutes, photo -> viewModel.startTracking(cats, displays, note, timerMinutes, photo) },
-                    onStopTrackingAndSave = { cats, note, photo -> viewModel.stopTrackingAndSave(cats, note, photo) },
+                    onStopTrackingAndSave = { cats, note, photo, lat, lng, locName ->
+                        viewModel.stopTrackingAndSave(cats, note, photo, lat, lng, locName)
+                    },
                     onCancelTracking = { viewModel.cancelTracking() },
-                    onClearAlarm = { viewModel.clearAlarmTriggered() }
+                    onClearAlarm = { viewModel.clearAlarmTriggered() },
+                    locationState = locationState,
+                    isFetchingLocation = isFetchingLocation,
+                    onFetchLocation = { viewModel.fetchCurrentLocation() },
+                    onClearLocation = { viewModel.clearLocation() }
                 )
                 1 -> StatsScreen(
                     categories = categories,

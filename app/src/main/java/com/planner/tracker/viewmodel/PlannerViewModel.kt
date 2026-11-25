@@ -25,6 +25,8 @@ import com.planner.tracker.data.NetworkMonitor
 import com.planner.tracker.data.Template
 import com.planner.tracker.data.TemplateDao
 import com.planner.tracker.data.HourStat
+import com.planner.tracker.util.LocationHelper
+import com.planner.tracker.util.LocationResult
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -100,6 +102,13 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     private val _isTracking = MutableStateFlow(false)
     val isTracking: StateFlow<Boolean> = _isTracking
+
+    // ─── 위치 상태 ────────────────────────────────────────────────────────────
+    private val _locationState = MutableStateFlow<LocationResult?>(null)
+    val locationState: StateFlow<LocationResult?> = _locationState
+
+    private val _isFetchingLocation = MutableStateFlow(false)
+    val isFetchingLocation: StateFlow<Boolean> = _isFetchingLocation
 
     private val _elapsedSeconds = MutableStateFlow(0L)
     val elapsedSeconds: StateFlow<Long> = _elapsedSeconds
@@ -305,7 +314,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         _currentMonth.value = month
     }
 
-    fun addEntry(category: String, minutes: Int, note: String, startTime: Long = 0, endTime: Long = 0, entryType: String = "DURATION", count: Int = 0, photoUri: String? = null) {
+    fun addEntry(category: String, minutes: Int, note: String, startTime: Long = 0, endTime: Long = 0, entryType: String = "DURATION", count: Int = 0, photoUri: String? = null, latitude: Double? = null, longitude: Double? = null, locationName: String? = null) {
         viewModelScope.launch {
             val dayRange = Repository.getDayRange(if (startTime > 0) startTime else _selectedDate.value)
             val catInfo = repository.getCategoryByName(category)
@@ -320,7 +329,10 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                 endTime = endTime,
                 entryType = entryType,
                 count = count,
-                photoUri = photoUri
+                photoUri = photoUri,
+                latitude = latitude,
+                longitude = longitude,
+                locationName = locationName
             )
 
             val eventId = CalendarSyncManager.addEvent(getApplication(), tempEntry, displayName)
@@ -478,7 +490,7 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun stopTrackingAndSave(categories: Set<String>, note: String, photoUri: String? = null): Pair<Long, Long>? {
+    fun stopTrackingAndSave(categories: Set<String>, note: String, photoUri: String? = null, latitude: Double? = null, longitude: Double? = null, locationName: String? = null): Pair<Long, Long>? {
         trackingJob?.cancel()
         trackingJob = null
         val ctx = getApplication<Application>()
@@ -522,7 +534,10 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
                         note = note,
                         startTime = startWallClock,
                         endTime = endTimeValue,
-                        photoUri = photoUri
+                        photoUri = photoUri,
+                        latitude = latitude,
+                        longitude = longitude,
+                        locationName = locationName
                     )
 
                     val eventId = CalendarSyncManager.addEvent(getApplication(), tempEntry, displayName)
@@ -558,6 +573,22 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             categoryDisplays = "",
             photoUri = null
         )
+    }
+
+    // ─── 위치 가져오기 ────────────────────────────────────────────────────────
+    fun fetchCurrentLocation() {
+        viewModelScope.launch {
+            _isFetchingLocation.value = true
+            _locationState.value = null
+            val ctx = getApplication<Application>()
+            val result = LocationHelper.getCurrentLocation(ctx)
+            _locationState.value = result
+            _isFetchingLocation.value = false
+        }
+    }
+
+    fun clearLocation() {
+        _locationState.value = null
     }
 
     fun updateTrackingNote(note: String) {
